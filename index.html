@@ -4,16 +4,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Бухгалтерский Архив</title>
+  <title>Архив Бухгалтерии</title>
   
-  <!-- Telegram Web App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Babel Standalone для компиляции JSX/TSX в браузере -->
-  <script src="https://unpkg.com/@babel/standalone@7.26.2/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,72 +28,59 @@
 </script>
 
   <script>
-    // Защита от отсутствия process.env
     window.process = { env: { API_KEY: "" } };
-
-    // Настройка Babel для работы с TypeScript и React в браузере
-    Babel.registerPreset('app-tsx', {
+    
+    // Предустановка Babel для TSX
+    Babel.registerPreset('my-tsx', {
       presets: [
         [Babel.availablePresets['typescript'], { allExtensions: true, isTSX: true }],
         [Babel.availablePresets['react'], { runtime: 'automatic' }]
       ]
     });
 
-    // Глобальная обработка ошибок для диагностики
     window.onerror = function(msg, url, line, col, error) {
-      console.error("Boot error:", msg);
+      console.error("Critical Error:", msg, error);
       const root = document.getElementById('root');
       if (root) {
-        root.innerHTML = `
-          <div style="padding: 30px; text-align: center; font-family: sans-serif;">
-            <h2 style="color: #e11d48; margin-bottom: 10px;">Ошибка загрузки</h2>
-            <p style="font-size: 13px; color: #666; margin-bottom: 20px;">${msg}</p>
-            <button onclick="location.reload()" style="padding: 10px 20px; background: #0088cc; color: white; border: none; border-radius: 10px; cursor: pointer;">Обновить страницу</button>
-          </div>
-        `;
+        root.innerHTML = `<div style="padding: 40px; text-align: center; font-family: sans-serif; color: #666;">
+          <h2 style="color: #ef4444;">Ошибка запуска</h2>
+          <p style="font-size: 13px;">${msg}</p>
+          <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #0088cc; color: white; border: none; border-radius: 10px;">Обновить</button>
+        </div>`;
       }
     };
   </script>
 
   <style>
-    :root { --tg-color: #0088cc; }
     body {
       font-family: 'Inter', sans-serif;
-      background-color: var(--tg-theme-bg-color, #e6ebee);
+      background-color: var(--tg-theme-bg-color, #f4f7f9);
       color: var(--tg-theme-text-color, #000);
       margin: 0; padding: 0; overflow: hidden;
-      -webkit-tap-highlight-color: transparent;
     }
     #loading-screen {
       display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
-      color: var(--tg-theme-button-color, #0088cc);
+      background: white;
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .loader { width: 32px; height: 32px; border: 3px solid #f3f3f3; border-top: 3px solid #0088cc; border-radius: 50%; animation: spin 1s linear infinite; }
   </style>
 </head>
 <body>
   <div id="root">
     <div id="loading-screen">
-      <div style="width: 32px; height: 32px; border: 3px solid #f3f3f3; border-top: 3px solid var(--tg-theme-button-color, #0088cc); border-radius: 50%; animation: spin 1s linear infinite;"></div>
-      <p style="margin-top: 15px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.5;">Загрузка архива...</p>
+      <div class="loader"></div>
+      <p style="margin-top: 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #999;">Загрузка данных...</p>
     </div>
   </div>
 
-  <!-- Код запуска теперь находится прямо здесь для надежности -->
-  <script type="text/babel" data-presets="app-tsx" data-type="module">
+  <script type="text/babel" data-presets="my-tsx" data-type="module">
     import React from 'react';
     import ReactDOM from 'react-dom/client';
     import App from './App.tsx';
 
-    try {
-      const container = document.getElementById('root');
-      if (container) {
-        const root = ReactDOM.createRoot(container);
-        root.render(<App />);
-      }
-    } catch (e) {
-      console.error("Render error:", e);
-    }
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
   </script>
 </body>
 </html>

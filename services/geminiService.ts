@@ -24,9 +24,10 @@ export const analyzeDocument = async (fileName: string): Promise<AIAnalysisResul
     - taxes (Налоги, Отчеты)
     - misc (Прочее)`;
 
+    // Fix: Using string directly for contents as it is a text-only prompt
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: [{ parts: [{ text: prompt }] }],
+      contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -40,6 +41,7 @@ export const analyzeDocument = async (fileName: string): Promise<AIAnalysisResul
       },
     });
 
+    // Fix: Access response.text property directly
     return JSON.parse(response.text || "{}") as AIAnalysisResult;
   } catch (error) {
     console.error("AI Error:", error);
