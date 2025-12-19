@@ -16,7 +16,7 @@ export const FOLDERS: Folder[] = [
   },
   {
     id: 'waybills',
-    name: 'Накладные',
+    name: 'Накладная',
     description: 'Отгрузочные документы',
     color: 'bg-emerald-500',
     icon: (
