@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { FolderType, AIAnalysisResult } from "../types.ts";
+// Fix: Updated import path to correctly reference types and include AIAnalysisResult
+import { FolderType, AIAnalysisResult } from "../types";
 
 export const analyzeDocument = async (fileName: string): Promise<AIAnalysisResult> => {
   if (!fileName || fileName.trim() === "") {
@@ -15,6 +16,7 @@ export const analyzeDocument = async (fileName: string): Promise<AIAnalysisResul
   }
 
   try {
+    // Fix: Initializing GoogleGenAI with named parameter as required
     const ai = new GoogleGenAI({ apiKey });
     const prompt = `Файл: "${fileName}". 
     Определи папку:
@@ -24,7 +26,7 @@ export const analyzeDocument = async (fileName: string): Promise<AIAnalysisResul
     - taxes (Налоги, Отчеты)
     - misc (Прочее)`;
 
-    // Fix: Using string directly for contents as it is a text-only prompt
+    // Fix: Using generateContent with correct model name and responseSchema
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
@@ -33,16 +35,27 @@ export const analyzeDocument = async (fileName: string): Promise<AIAnalysisResul
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            suggestedFolder: { type: Type.STRING },
-            reasoning: { type: Type.STRING },
+            suggestedFolder: { 
+              type: Type.STRING,
+              description: 'The slug of the suggested folder (invoices, waybills, contracts, taxes, or misc).'
+            },
+            reasoning: { 
+              type: Type.STRING,
+              description: 'Brief explanation for why this folder was chosen.'
+            },
           },
-          required: ["suggestedFolder", "reasoning"],
+          propertyOrdering: ["suggestedFolder", "reasoning"],
         },
       },
     });
 
-    // Fix: Access response.text property directly
-    return JSON.parse(response.text || "{}") as AIAnalysisResult;
+    // Fix: Access response.text property directly (not as a method)
+    const resultText = response.text;
+    if (!resultText) {
+      return fallbackAnalysis(fileName);
+    }
+    
+    return JSON.parse(resultText) as AIAnalysisResult;
   } catch (error) {
     console.error("AI Error:", error);
     return fallbackAnalysis(fileName);
@@ -51,8 +64,10 @@ export const analyzeDocument = async (fileName: string): Promise<AIAnalysisResul
 
 const fallbackAnalysis = (fileName: string): AIAnalysisResult => {
   const name = fileName.toLowerCase();
+  // Fix: Improved local rules to cover more folder types
   if (name.includes('счет') || name.includes('inv')) return { suggestedFolder: 'invoices', reasoning: 'Найдено ключевое слово "Счет"' };
   if (name.includes('накл') || name.includes('упд')) return { suggestedFolder: 'waybills', reasoning: 'Найдено ключевое слово "Накладная"' };
   if (name.includes('договор')) return { suggestedFolder: 'contracts', reasoning: 'Найдено ключевое слово "Договор"' };
+  if (name.includes('налог') || name.includes('фнс') || name.includes('отчет')) return { suggestedFolder: 'taxes', reasoning: 'Найдено ключевое слово "Налог/Отчет"' };
   return { suggestedFolder: 'misc', reasoning: 'Папка по умолчанию' };
 };

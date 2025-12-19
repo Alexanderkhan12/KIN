@@ -1,32 +1,25 @@
 
-export type FolderType = 'invoices' | 'waybills' | 'contracts' | 'misc' | 'taxes';
+export type FolderType = 'invoices' | 'waybills' | 'contracts' | 'taxes' | 'misc';
 
 export interface Folder {
   id: FolderType;
   name: string;
   description: string;
   color: string;
-  icon: React.ReactNode;
+  command: string;
+  icon: string;
 }
 
 export interface Document {
   id: string;
   name: string;
   folder: FolderType;
-  uploadDate: string;
+  date: string;
   size: string;
-  uploader: string;
-  url: string;
+  user: string;
 }
 
-export interface ChatMessage {
-  id: string;
-  text: string;
-  sender: 'user' | 'system';
-  timestamp: string;
-  attachedDocId?: string;
-}
-
+// Added AIAnalysisResult interface to fix missing exported member error
 export interface AIAnalysisResult {
   suggestedFolder: FolderType;
   reasoning: string;

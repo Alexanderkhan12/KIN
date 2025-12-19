@@ -23,7 +23,6 @@
       --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #f4f7f9);
       --tg-text: var(--tg-theme-text-color, #222222);
       --tg-hint: var(--tg-theme-hint-color, #999999);
-      --tg-link: var(--tg-theme-link-color, #0088cc);
       --tg-btn: var(--tg-theme-button-color, #0088cc);
       --tg-btn-text: var(--tg-theme-button-text-color, #ffffff);
     }
@@ -47,20 +46,21 @@
     
     .folder-card {
       background: var(--tg-bg);
-      transition: transform 0.1s ease;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .folder-card:active { transform: scale(0.97); }
+    .folder-card:active { transform: scale(0.96); opacity: 0.8; }
     
-    .chat-bubble-system { background: var(--tg-bg); border: 1px solid rgba(0,0,0,0.05); }
-    .chat-bubble-user { background: var(--tg-btn); color: var(--tg-btn-text); }
-
     .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+    .doc-item {
+      border-bottom: 0.5px solid rgba(0,0,0,0.05);
+      transition: background 0.2s ease;
+    }
+    .doc-item:active { background: rgba(0,0,0,0.03); }
   </style>
 <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
-    "react/": "https://esm.sh/react@^19.2.3/",
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
   }
 }
@@ -70,27 +70,26 @@
   <div id="root">
     <div id="loading-screen">
       <div class="loader"></div>
-      <p style="margin-top: 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--tg-hint); font-weight: 600;">Синхронизация группы...</p>
+      <p style="margin-top: 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--tg-hint); font-weight: 600;">Загрузка архива...</p>
     </div>
   </div>
 
   <script type="text/babel" data-presets="react,typescript">
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect } = React;
 
     const FOLDERS = [
-      { id: 'invoices', name: 'Счета и спецификации', color: 'bg-blue-500', icon: '📄', shortcut: '/счет' },
-      { id: 'waybills', name: 'Накладные (УПД)', color: 'bg-emerald-500', icon: '🚚', shortcut: '/упд' },
-      { id: 'contracts', name: 'Договоры', color: 'bg-amber-500', icon: '📝', shortcut: '/дог' },
-      { id: 'taxes', name: 'Налоги и отчеты', color: 'bg-indigo-500', icon: '📊', shortcut: '/налог' },
-      { id: 'misc', name: 'Разное', color: 'bg-slate-500', icon: '📁', shortcut: '/др' },
+      { id: 'invoices', name: 'Счета и спецификации', color: 'bg-blue-600', icon: '📄', cmd: '/счет' },
+      { id: 'waybills', name: 'Накладные и УПД', color: 'bg-emerald-600', icon: '🚚', cmd: '/упд' },
+      { id: 'contracts', name: 'Договоры', color: 'bg-amber-500', icon: '📝', cmd: '/дог' },
+      { id: 'taxes', name: 'Налоги и отчеты', color: 'bg-indigo-600', icon: '📊', cmd: '/налог' },
+      { id: 'misc', name: 'Разное', color: 'bg-slate-500', icon: '📁', cmd: '/др' },
     ];
 
     const App = () => {
       const tg = window.Telegram?.WebApp;
-      const [view, setView] = useState('folders'); // По умолчанию открываем архив для группы
       const [currentFolder, setCurrentFolder] = useState(null);
       const [documents, setDocuments] = useState([]);
-      const [isUploading, setIsUploading] = useState(false);
+      const [searchQuery, setSearchQuery] = useState('');
 
       useEffect(() => {
         if (tg) {
@@ -100,7 +99,7 @@
           tg.backgroundColor = tg.themeParams.secondary_bg_color || '#f4f7f9';
         }
 
-        const saved = localStorage.getItem('kin_group_archive_v1');
+        const saved = localStorage.getItem('kin_archive_v4');
         if (saved) {
           try { setDocuments(JSON.parse(saved)); } catch (e) {}
         }
@@ -110,10 +109,9 @@
       }, []);
 
       useEffect(() => {
-        localStorage.setItem('kin_group_archive_v1', JSON.stringify(documents));
+        localStorage.setItem('kin_archive_v4', JSON.stringify(documents));
       }, [documents]);
 
-      // Нативная кнопка "Назад"
       useEffect(() => {
         if (!tg) return;
         if (currentFolder) {
@@ -124,142 +122,144 @@
         }
       }, [currentFolder]);
 
-      // Главная кнопка "Загрузить"
-      useEffect(() => {
-        if (!tg) return;
-        if (!currentFolder && !isUploading) {
-          tg.MainButton.setText('➕ ДОБАВИТЬ ДОКУМЕНТ');
-          tg.MainButton.show();
-          tg.MainButton.onClick(() => document.getElementById('groupFileInput').click());
-        } else {
-          tg.MainButton.hide();
-        }
-      }, [currentFolder, isUploading]);
-
       const handleFileUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        setIsUploading(true);
         tg.MainButton.showProgress();
 
-        const name = file.name.toLowerCase();
-        let folder = 'misc';
-        if (name.includes('счет') || name.includes('inv')) folder = 'invoices';
-        else if (name.includes('накл') || name.includes('упд')) folder = 'waybills';
-        else if (name.includes('дог')) folder = 'contracts';
-        else if (name.includes('налог') || name.includes('отчет')) folder = 'taxes';
-
+        // Простая имитация распознавания по слэшу или имени
         const newDoc = {
           id: Math.random().toString(36).substr(2, 9),
           name: file.name,
-          folder: folder,
+          folder: currentFolder || 'misc',
           date: new Date().toLocaleDateString('ru-RU'),
           size: (file.size / 1024).toFixed(1) + ' KB',
           user: tg.initDataUnsafe?.user?.first_name || 'Сотрудник'
         };
 
-        setTimeout(() => {
-          setDocuments(prev => [newDoc, ...prev]);
-          setIsUploading(false);
-          tg.MainButton.hideProgress();
-          tg.HapticFeedback.notificationOccurred('success');
-          tg.showAlert(`Файл "${file.name}" успешно сохранен в папку "${FOLDERS.find(f => f.id === folder).name}"`);
-        }, 800);
+        setDocuments(prev => [newDoc, ...prev]);
+        tg.MainButton.hideProgress();
+        tg.HapticFeedback.notificationOccurred('success');
+        tg.showAlert(`Файл "${file.name}" добавлен.`);
       };
 
-      const shareToChat = (doc) => {
-        // В реальном боте здесь будет отправка сообщения в группу
-        tg.sendData(JSON.stringify({
-          action: 'share_doc',
-          doc_name: doc.name,
-          doc_id: doc.id
-        }));
-        tg.close(); // Закрываем Mini App после выбора
+      const shareDoc = (doc) => {
+        tg.sendData(JSON.stringify({ action: 'share', id: doc.id, name: doc.name }));
+        tg.close();
       };
+
+      const filteredDocs = documents.filter(d => 
+        (currentFolder ? d.folder === currentFolder : true) &&
+        d.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
 
       return (
-        <div className="flex flex-col h-screen max-w-lg mx-auto overflow-hidden relative">
+        <div className="flex flex-col h-screen max-w-lg mx-auto overflow-hidden">
           
-          <header className="px-5 py-4 flex items-center justify-between shrink-0 bg-white border-b border-gray-100">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-sm">📂</div>
-              <div>
-                <h1 className="font-extrabold text-[15px] leading-tight text-gray-800 tracking-tight">Общий Архив</h1>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Группа Бухгалтерии</p>
+          <header className="px-5 py-6 bg-white border-b border-gray-100 shrink-0">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg">📂</div>
+                <div>
+                  <h1 className="font-extrabold text-[17px] tracking-tight leading-none text-gray-900">БухАрхив</h1>
+                  <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest mt-1">Групповое хранилище</p>
+                </div>
               </div>
+              <button onClick={() => tg.close()} className="text-gray-300 hover:text-gray-500">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
             </div>
-            <button onClick={() => tg.close()} className="text-gray-300">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
+
+            <div className="relative">
+              <input 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Поиск по названию..." 
+                className="w-full bg-gray-50 border-none rounded-2xl px-10 py-3 text-[14px] outline-none focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-gray-300"
+              />
+              <svg className="w-4 h-4 absolute left-3.5 top-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            </div>
           </header>
 
-          <main className="flex-1 overflow-hidden relative bg-[#f4f7f9]">
-            <input type="file" id="groupFileInput" className="hidden" onChange={handleFileUpload} />
-
-            <div className="h-full overflow-y-auto p-4 space-y-4 pb-24">
-              {!currentFolder ? (
+          <main className="flex-1 overflow-y-auto bg-[#f4f7f9] p-4 space-y-4 pb-20">
+            {!currentFolder ? (
+              <>
+                <div className="px-1 flex justify-between items-center">
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Папки и команды</span>
+                  <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">{documents.length} док.</span>
+                </div>
                 <div className="grid grid-cols-1 gap-3">
-                  <div className="flex justify-between items-center px-1 mb-1">
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Папки группы</span>
-                    <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">{documents.length} файлов</span>
-                  </div>
                   {FOLDERS.map(f => (
-                    <div key={f.id} onClick={() => setCurrentFolder(f.id)} className="folder-card p-4 rounded-2xl flex items-center justify-between shadow-sm border border-transparent hover:border-blue-100">
+                    <div 
+                      key={f.id} 
+                      onClick={() => setCurrentFolder(f.id)} 
+                      className="folder-card p-4 rounded-3xl flex items-center justify-between shadow-sm border border-white hover:border-blue-50 cursor-pointer"
+                    >
                       <div className="flex items-center gap-4">
-                        <div className={`${f.color} w-12 h-12 rounded-xl flex items-center justify-center text-2xl text-white shadow-sm`}>{f.icon}</div>
+                        <div className={`${f.color} w-12 h-12 rounded-2xl flex items-center justify-center text-2xl text-white shadow-md`}>{f.icon}</div>
                         <div>
-                          <div className="font-bold text-[15px] text-gray-800">{f.name}</div>
-                          <div className="text-[10px] text-gray-400 font-medium">{f.shortcut} • {documents.filter(d => d.folder === f.id).length} шт.</div>
+                          <div className="font-bold text-[15px] text-gray-800 leading-tight">{f.name}</div>
+                          <div className="text-[11px] text-blue-500 font-extrabold mt-0.5 tracking-tight">{f.cmd} <span className="text-gray-300 font-normal ml-1">— {documents.filter(d => d.folder === f.id).length} шт.</span></div>
                         </div>
                       </div>
-                      <svg className="w-5 h-5 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M9 5l7 7-7 7" /></svg>
+                      <svg className="w-5 h-5 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="flex flex-col h-full bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="p-4 border-b bg-gray-50/50 flex justify-between items-center">
-                    <button onClick={() => setCurrentFolder(null)} className="text-blue-600 font-black text-[10px] uppercase flex items-center gap-1.5 tracking-widest">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg> Назад
-                    </button>
-                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">{FOLDERS.find(f => f.id === currentFolder).name}</span>
-                  </div>
-                  <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
-                    {documents.filter(d => d.folder === currentFolder).map(d => (
-                      <div key={d.id} className="p-4 flex justify-between items-center active:bg-gray-50 transition-colors">
-                        <div className="overflow-hidden flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-xl shrink-0">📄</div>
-                          <div className="overflow-hidden">
-                            <div className="text-[13px] font-bold text-gray-800 truncate">{d.name}</div>
-                            <div className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">
-                              {d.user} • {d.date} • {d.size}
-                            </div>
+
+                <div className="mt-6 p-5 bg-white rounded-3xl border border-gray-100 shadow-sm">
+                  <h3 className="text-[12px] font-black text-gray-800 uppercase tracking-widest mb-3">Как это работает?</h3>
+                  <p className="text-[13px] text-gray-500 leading-relaxed">
+                    Просто пришлите файл в группу и добавьте в описание или ответ команду (например, <span className="text-blue-600 font-bold">/счет</span>). Файл автоматически появится здесь в нужной папке.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="bg-white rounded-[32px] min-h-full flex flex-col shadow-xl border border-gray-100 overflow-hidden">
+                <div className="p-5 border-b bg-gray-50/30 flex justify-between items-center sticky top-0 z-10 backdrop-blur-md">
+                   <div className="flex items-center gap-3">
+                     <span className="text-2xl">{FOLDERS.find(f => f.id === currentFolder).icon}</span>
+                     <div>
+                       <div className="text-[14px] font-black text-gray-800 leading-none">{FOLDERS.find(f => f.id === currentFolder).name}</div>
+                       <div className="text-[10px] text-blue-500 font-black uppercase mt-1 tracking-tighter">Команда: {FOLDERS.find(f => f.id === currentFolder).cmd}</div>
+                     </div>
+                   </div>
+                </div>
+                
+                <div className="flex-1 divide-y divide-gray-50">
+                  {filteredDocs.length > 0 ? filteredDocs.map(d => (
+                    <div key={d.id} onClick={() => shareDoc(d)} className="doc-item p-4 flex items-center justify-between group">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-xl shrink-0 group-active:scale-90 transition-transform">📄</div>
+                        <div className="overflow-hidden">
+                          <div className="text-[13.5px] font-bold text-gray-800 truncate leading-tight">{d.name}</div>
+                          <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter mt-1">
+                            {d.date} • {d.size} • {d.user}
                           </div>
                         </div>
-                        <button 
-                          onClick={() => shareToChat(d)}
-                          className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter shrink-0"
-                        >
-                          В чат
-                        </button>
                       </div>
-                    ))}
-                    {documents.filter(d => d.folder === currentFolder).length === 0 && (
-                      <div className="p-16 text-center text-gray-300 font-black uppercase text-[10px] tracking-widest">В этой папке пока пусто</div>
-                    )}
-                  </div>
+                      <button className="p-2 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                      </button>
+                    </div>
+                  )) : (
+                    <div className="p-20 text-center">
+                      <div className="text-4xl mb-4 grayscale opacity-20">📂</div>
+                      <p className="text-[11px] font-black text-gray-300 uppercase tracking-[3px]">Папка пуста</p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </main>
 
-          {/* Инструкция для администратора группы */}
-          <footer className="p-4 bg-white border-t border-gray-100 safe-area-bottom">
-            <p className="text-[9px] text-center text-gray-400 font-medium leading-relaxed">
-              Чтобы кнопка появилась у всех участников:<br/>
-              <b>BotFather</b> → <b>Bot Settings</b> → <b>Menu Button</b> → <b>Configure</b>
-            </p>
+          <footer className="p-4 bg-white border-t border-gray-100 flex gap-3 safe-area-bottom">
+            <input type="file" id="archiveUpload" className="hidden" onChange={handleFileUpload} />
+            <label htmlFor="archiveUpload" className="flex-1 bg-blue-600 text-white text-[12px] font-black uppercase py-4 rounded-2xl shadow-lg shadow-blue-100 flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer tracking-widest">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+              Добавить вручную
+            </label>
           </footer>
         </div>
       );
