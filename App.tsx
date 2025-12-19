@@ -82,32 +82,42 @@ const App: React.FC = () => {
 
   const handleFileUpload = async (file: File, text: string) => {
     setIsUploading(true);
-    let targetFolder = detectFolder(text);
-    if (!targetFolder) {
-      const aiResult = await analyzeDocument(file.name);
-      targetFolder = aiResult.suggestedFolder;
+    try {
+      let targetFolder = detectFolder(text);
+      let reasoning = "";
+
+      if (!targetFolder) {
+        const aiResult = await analyzeDocument(file.name);
+        targetFolder = aiResult.suggestedFolder;
+        reasoning = aiResult.reasoning;
+      }
+
+      const newDoc: Document = {
+        id: Math.random().toString(36).substr(2, 9),
+        name: file.name,
+        folder: targetFolder,
+        uploadDate: new Date().toLocaleDateString('ru-RU'),
+        size: `${(file.size / 1024).toFixed(1)} KB`,
+        uploader: 'Вы',
+        url: '#'
+      };
+
+      setDocuments(prev => [newDoc, ...prev]);
+      setMessages(prev => [...prev, {
+        id: Math.random().toString(36).substr(2, 9),
+        text: text || `📄 Загружен файл: ${file.name}\n${reasoning ? `💡 ${reasoning}` : ''}`,
+        sender: 'user',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        attachedDocId: newDoc.id,
+      }]);
+    } catch (err) {
+      setToastMessage('Ошибка при загрузке файла');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } finally {
+      setIsUploading(false);
+      setInputText('');
     }
-
-    const newDoc: Document = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: file.name,
-      folder: targetFolder,
-      uploadDate: new Date().toLocaleDateString('ru-RU'),
-      size: `${(file.size / 1024).toFixed(1)} KB`,
-      uploader: 'Вы',
-      url: '#'
-    };
-
-    setDocuments(prev => [newDoc, ...prev]);
-    setMessages(prev => [...prev, {
-      id: Math.random().toString(36).substr(2, 9),
-      text: text || `📄 Загружен файл: ${file.name}`,
-      sender: 'user',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      attachedDocId: newDoc.id,
-    }]);
-    setIsUploading(false);
-    setInputText('');
   };
 
   const copyDocLink = (docId: string) => {
@@ -126,7 +136,7 @@ const App: React.FC = () => {
   const copyAppUrl = () => {
     const url = window.location.href.split('#')[0];
     navigator.clipboard.writeText(url);
-    setToastMessage('URL приложения скопирован!');
+    setToastMessage('URL скопирован!');
     setShowToast(true);
     setTimeout(() => setShowToast(false), 2000);
   };
@@ -142,7 +152,7 @@ const App: React.FC = () => {
           </div>
           <div>
             <h1 className="text-sm font-bold text-gray-900 leading-tight">Архив Бухгалтерии</h1>
-            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">v1.2 Active</p>
+            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">v1.3 Active</p>
           </div>
         </div>
         
@@ -216,6 +226,11 @@ const App: React.FC = () => {
                       <button onClick={() => copyDocLink(doc.id)} className="p-2 text-gray-300 hover:text-[#0088cc]"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg></button>
                     </div>
                   ))}
+                  {documents.filter(d => d.folder === currentFolder).length === 0 && (
+                    <div className="p-12 text-center">
+                      <p className="text-gray-400 text-xs font-bold uppercase">Папка пуста</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -225,38 +240,32 @@ const App: React.FC = () => {
         {view === 'setup' && (
           <div className="p-6 h-full overflow-y-auto bg-white">
             <button onClick={() => setView('chat')} className="mb-6 text-xs text-gray-400 font-bold uppercase flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg> Закрыть настройку
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg> Закрыть
             </button>
             <h2 className="text-xl font-black text-gray-900 mb-2">Настройка Telegram</h2>
-            <p className="text-sm text-gray-500 mb-8">Выполните эти 3 шага, чтобы приложение заработало в вашем чате.</p>
+            <p className="text-sm text-gray-500 mb-8">Чтобы сайт заработал, выполните эти шаги:</p>
             
             <div className="space-y-8">
               <div className="relative pl-8">
                 <div className="absolute left-0 top-0 w-6 h-6 bg-[#0088cc] text-white rounded-full flex items-center justify-center text-[10px] font-bold">1</div>
-                <h3 className="font-bold text-sm mb-1">Ваша ссылка на GitHub</h3>
-                <p className="text-[12px] text-gray-600 mb-3 leading-relaxed">Если вы видите этот текст, значит ваш сайт уже работает! Скопируйте адрес ниже:</p>
-                <div className="bg-gray-100 p-3 rounded-xl flex items-center justify-between group active:scale-95 transition-transform cursor-pointer" onClick={copyAppUrl}>
+                <h3 className="font-bold text-sm mb-1">Активируйте Pages</h3>
+                <p className="text-[12px] text-gray-600 mb-3 leading-relaxed">В GitHub: <b>Settings → Pages</b>. Выберите ветку <b>main</b> и нажмите <b>Save</b>. Подождите 1 минуту.</p>
+              </div>
+
+              <div className="relative pl-8">
+                <div className="absolute left-0 top-0 w-6 h-6 bg-[#0088cc] text-white rounded-full flex items-center justify-center text-[10px] font-bold">2</div>
+                <h3 className="font-bold text-sm mb-1">Скопируйте URL</h3>
+                <div className="bg-gray-100 p-3 rounded-xl flex items-center justify-between group active:scale-95 transition-transform cursor-pointer mt-2" onClick={copyAppUrl}>
                   <code className="text-[10px] text-[#0088cc] font-bold truncate mr-2">{window.location.href.split('#')[0]}</code>
                   <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
                 </div>
               </div>
 
               <div className="relative pl-8">
-                <div className="absolute left-0 top-0 w-6 h-6 bg-[#0088cc] text-white rounded-full flex items-center justify-center text-[10px] font-bold">2</div>
-                <h3 className="font-bold text-sm mb-1">Регистрация в @BotFather</h3>
-                <p className="text-[12px] text-gray-600 leading-relaxed">Напишите боту <b>@BotFather</b> команду <code className="bg-gray-100 px-1 rounded text-[#0088cc]">/newapp</code>. Когда он попросит URL — вставьте ссылку, которую скопировали на шаге 1.</p>
-              </div>
-
-              <div className="relative pl-8">
                 <div className="absolute left-0 top-0 w-6 h-6 bg-[#0088cc] text-white rounded-full flex items-center justify-center text-[10px] font-bold">3</div>
-                <h3 className="font-bold text-sm mb-1">Готово к работе!</h3>
-                <p className="text-[12px] text-gray-600 leading-relaxed">BotFather даст вам короткую ссылку (например, <code className="text-[#0088cc]">t.me/mybot/app</code>). Отправьте её в чат с бухгалтерией и закрепите.</p>
+                <h3 className="font-bold text-sm mb-1">Создайте BotApp</h3>
+                <p className="text-[12px] text-gray-600 leading-relaxed">В <b>@BotFather</b>: <code className="bg-gray-100 px-1 rounded text-[#0088cc]">/newapp</code>. Вставьте ваш URL. Бот даст ссылку вида <i>t.me/bot/app</i>.</p>
               </div>
-            </div>
-            
-            <div className="mt-12 p-4 bg-blue-50 rounded-2xl border border-blue-100">
-               <p className="text-[10px] text-blue-600 font-bold uppercase mb-1">Совет</p>
-               <p className="text-[11px] text-blue-800/70">Если в GitHub Pages все еще нет ссылки — проверьте, что в настройках выбрана ветка <b>main</b> и нажата кнопка <b>Save</b>.</p>
             </div>
           </div>
         )}
