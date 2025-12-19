@@ -6,7 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Архив Бухгалтерии</title>
   
+  <!-- SDK Telegram -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
+  <!-- Библиотеки -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   
@@ -28,25 +31,31 @@
 </script>
 
   <script>
+    // Защита окружения
     window.process = { env: { API_KEY: "" } };
     
-    // Предустановка Babel для TSX
-    Babel.registerPreset('my-tsx', {
+    // Конфигурация Babel для TSX
+    Babel.registerPreset('app-preset', {
       presets: [
         [Babel.availablePresets['typescript'], { allExtensions: true, isTSX: true }],
         [Babel.availablePresets['react'], { runtime: 'automatic' }]
       ]
     });
 
+    // Логгер для отладки на GitHub Pages
     window.onerror = function(msg, url, line, col, error) {
-      console.error("Critical Error:", msg, error);
+      console.error("Critical Runtime Error:", msg, error);
       const root = document.getElementById('root');
       if (root) {
-        root.innerHTML = `<div style="padding: 40px; text-align: center; font-family: sans-serif; color: #666;">
-          <h2 style="color: #ef4444;">Ошибка запуска</h2>
-          <p style="font-size: 13px;">${msg}</p>
-          <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #0088cc; color: white; border: none; border-radius: 10px;">Обновить</button>
-        </div>`;
+        root.innerHTML = `
+          <div style="padding: 40px; text-align: center; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white;">
+            <div style="color: #ef4444; font-size: 40px; margin-bottom: 20px;">⚠️</div>
+            <h2 style="font-weight: 800; color: #1f2937; margin-bottom: 8px;">Ошибка загрузки</h2>
+            <p style="font-size: 13px; color: #6b7280; max-width: 280px; margin-bottom: 24px;">Произошла ошибка при инициализации приложения в браузере.</p>
+            <div style="background: #f3f4f6; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 10px; color: #ef4444; margin-bottom: 24px; max-width: 90%; overflow: auto;">${msg}</div>
+            <button onclick="location.reload()" style="padding: 12px 24px; background: #0088cc; color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer;">Обновить страницу</button>
+          </div>
+        `;
       }
     };
   </script>
@@ -70,17 +79,21 @@
   <div id="root">
     <div id="loading-screen">
       <div class="loader"></div>
-      <p style="margin-top: 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #999;">Загрузка данных...</p>
+      <p style="margin-top: 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #999; font-weight: 600;">Запуск приложения...</p>
     </div>
   </div>
 
-  <script type="text/babel" data-presets="my-tsx" data-type="module">
+  <!-- Основной скрипт запуска -->
+  <script type="text/babel" data-presets="app-preset" data-type="module">
     import React from 'react';
     import ReactDOM from 'react-dom/client';
     import App from './App.tsx';
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    const rootElement = document.getElementById('root');
+    if (rootElement) {
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(<App />);
+    }
   </script>
 </body>
 </html>
