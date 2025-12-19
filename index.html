@@ -20,50 +20,31 @@
   <style>
     :root {
       --tg-bg: var(--tg-theme-bg-color, #ffffff);
-      --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #f4f7f9);
-      --tg-text: var(--tg-theme-text-color, #222222);
-      --tg-hint: var(--tg-theme-hint-color, #999999);
-      --tg-btn: var(--tg-theme-button-color, #0088cc);
-      --tg-btn-text: var(--tg-theme-button-text-color, #ffffff);
+      --tg-sec-bg: var(--tg-theme-secondary-bg-color, #f4f4f7);
+      --tg-text: var(--tg-theme-text-color, #000000);
+      --tg-hint: var(--tg-theme-hint-color, #8e8e93);
+      --tg-link: var(--tg-theme-link-color, #007aff);
     }
 
     body {
       font-family: 'Inter', sans-serif;
-      background-color: var(--tg-secondary-bg);
+      background-color: var(--tg-sec-bg);
       color: var(--tg-text);
       margin: 0; padding: 0; overflow: hidden;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
     }
 
-    #loading-screen {
-      display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
-      background: var(--tg-bg); z-index: 9999; position: fixed; inset: 0;
-    }
-
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .loader { width: 32px; height: 32px; border: 3px solid #f3f3f3; border-top: 3px solid var(--tg-btn); border-radius: 50%; animation: spin 1s linear infinite; }
-    
-    .folder-card {
+    .folder-item {
       background: var(--tg-bg);
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      border: 1px solid rgba(0,0,0,0.03);
+      transition: all 0.1s ease;
+      border: 1px solid rgba(0,0,0,0.05);
     }
-    .folder-card:active { transform: scale(0.97); opacity: 0.9; }
-    
-    .cmd-badge {
-      font-family: 'Monaco', 'Consolas', monospace;
-    }
+    .folder-item:active { background: #f2f2f7; transform: scale(0.98); }
 
-    .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
-    .doc-item {
-      border-bottom: 0.5px solid rgba(0,0,0,0.04);
-    }
-
-    .glass-effect {
-      backdrop-filter: blur(10px);
-      background: rgba(255, 255, 255, 0.8);
+    .app-button {
+      background-color: var(--tg-link);
+      color: #ffffff;
     }
   </style>
 <script type="importmap">
@@ -75,250 +56,168 @@
 </script>
 </head>
 <body>
-  <div id="root">
-    <div id="loading-screen">
-      <div class="loader"></div>
-      <p style="margin-top: 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--tg-hint); font-weight: 700;">Подготовка файлов...</p>
-    </div>
-  </div>
+  <div id="root"></div>
 
   <script type="text/babel" data-presets="react,typescript">
     const { useState, useEffect } = React;
 
     const FOLDERS = [
-      { id: 'invoices', name: 'Счета и спецификации', color: 'bg-blue-500', icon: '📄', cmd: '/счет' },
-      { id: 'waybills', name: 'Накладные и УПД', color: 'bg-emerald-500', icon: '🚚', cmd: '/упд' },
-      { id: 'contracts', name: 'Договоры', color: 'bg-amber-500', icon: '📝', cmd: '/дог' },
-      { id: 'taxes', name: 'Налоги и отчеты', color: 'bg-indigo-500', icon: '📊', cmd: '/налог' },
-      { id: 'misc', name: 'Разное', color: 'bg-slate-400', icon: '📁', cmd: '/др' },
+      { id: 'invoices', name: 'Счета и спецификации', cmd: '/счет', icon: '📄', color: 'text-blue-500' },
+      { id: 'waybills', name: 'Накладные и УПД', cmd: '/упд', icon: '🚚', color: 'text-green-500' },
+      { id: 'contracts', name: 'Договоры', cmd: '/дог', icon: '📝', color: 'text-orange-500' },
+      { id: 'taxes', name: 'Налоги и отчеты', cmd: '/налог', icon: '📊', color: 'text-indigo-500' },
+      { id: 'misc', name: 'Прочее', cmd: '/др', icon: '📁', color: 'text-gray-500' },
     ];
 
     const App = () => {
       const tg = window.Telegram?.WebApp;
-      const [currentFolderId, setCurrentFolderId] = useState(null);
-      const [documents, setDocuments] = useState([]);
-      const [searchQuery, setSearchQuery] = useState('');
+      const [view, setView] = useState('main'); // main, folder, setup
+      const [activeFolder, setActiveFolder] = useState(null);
+      const [storage, setStorage] = useState([]);
 
       useEffect(() => {
-        if (tg) {
-          tg.ready();
-          tg.expand();
-          tg.headerColor = tg.themeParams.bg_color || '#ffffff';
-          tg.backgroundColor = tg.themeParams.secondary_bg_color || '#f4f7f9';
-        }
-
-        const saved = localStorage.getItem('kin_archive_v6');
-        if (saved) {
-          try { setDocuments(JSON.parse(saved)); } catch (e) {}
-        }
-
-        const loader = document.getElementById('loading-screen');
-        if (loader) loader.style.display = 'none';
+        tg?.ready();
+        tg?.expand();
+        const saved = localStorage.getItem('kin_archive_final');
+        if (saved) setStorage(JSON.parse(saved));
       }, []);
 
       useEffect(() => {
-        localStorage.setItem('kin_archive_v6', JSON.stringify(documents));
-      }, [documents]);
+        localStorage.setItem('kin_archive_final', JSON.stringify(storage));
+      }, [storage]);
 
       useEffect(() => {
-        if (!tg) return;
-        if (currentFolderId) {
-          tg.BackButton.show();
-          tg.BackButton.onClick(() => setCurrentFolderId(null));
+        if (view !== 'main') {
+          tg?.BackButton.show();
+          tg?.BackButton.onClick(() => setView('main'));
         } else {
-          tg.BackButton.hide();
+          tg?.BackButton.hide();
         }
-      }, [currentFolderId]);
+      }, [view]);
 
-      const handleFileUpload = (e) => {
+      const onFileAdd = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
-        tg.MainButton.setText('СОХРАНЕНИЕ...');
-        tg.MainButton.show();
-        tg.MainButton.showProgress();
-
         const newDoc = {
-          id: Math.random().toString(36).substr(2, 9),
+          id: Date.now(),
           name: file.name,
-          folder: currentFolderId || 'misc',
+          folder: activeFolder?.id || 'misc',
           date: new Date().toLocaleDateString('ru-RU'),
-          size: (file.size / 1024).toFixed(1) + ' KB',
-          user: tg.initDataUnsafe?.user?.first_name || 'Сотрудник'
+          user: tg?.initDataUnsafe?.user?.first_name || 'Сотрудник'
         };
-
-        setTimeout(() => {
-          setDocuments(prev => [newDoc, ...prev]);
-          tg.MainButton.hide();
-          tg.HapticFeedback.notificationOccurred('success');
-          tg.showAlert(`Файл "${file.name}" добавлен в архив.`);
-        }, 800);
+        setStorage([newDoc, ...storage]);
+        tg?.HapticFeedback.notificationOccurred('success');
       };
 
-      const copyToClipboard = (text, e) => {
-        e.stopPropagation();
+      const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text);
-        tg.HapticFeedback.impactOccurred('medium');
-        // Simple visual feedback
-        const target = e.currentTarget;
-        const originalText = target.innerText;
-        target.innerText = 'СКОПИРОВАНО!';
-        setTimeout(() => target.innerText = originalText, 1000);
+        tg?.HapticFeedback.impactOccurred('light');
+        tg?.showAlert('Команда скопирована. Напишите её в чате вместе с файлом.');
       };
-
-      const filteredDocs = documents.filter(d => 
-        (currentFolderId ? d.folder === currentFolderId : true) &&
-        d.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-
-      const currentFolder = FOLDERS.find(f => f.id === currentFolderId);
 
       return (
-        <div className="flex flex-col h-screen max-w-lg mx-auto overflow-hidden bg-[#f4f7f9]">
+        <div className="flex flex-col h-screen max-w-md mx-auto overflow-hidden">
           
-          <header className="px-5 pt-6 pb-5 bg-white border-b border-gray-100 shrink-0 shadow-sm z-20">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-[18px] bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-lg text-2xl">
-                  {currentFolder ? currentFolder.icon : '📂'}
-                </div>
-                <div>
-                  <h1 className="font-extrabold text-[19px] tracking-tight leading-none text-gray-900">
-                    {currentFolder ? currentFolder.name : 'АРХИВ ГРУППЫ'}
-                  </h1>
-                  <p className="text-[10px] text-blue-500 font-black uppercase tracking-[0.15em] mt-1.5 opacity-70">
-                    Бухгалтерия & Документы
-                  </p>
-                </div>
-              </div>
-              <button onClick={() => tg.close()} className="w-10 h-10 bg-gray-50 flex items-center justify-center rounded-2xl text-gray-300 active:scale-90 transition-transform">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+          {/* Header */}
+          <header className="bg-white px-5 pt-10 pb-5 border-b border-gray-100 flex justify-between items-center">
+            <div>
+              <h1 className="text-xl font-extrabold tracking-tight">
+                {view === 'folder' ? activeFolder.name : (view === 'setup' ? 'Настройка' : 'Архив Документов')}
+              </h1>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Бухгалтерия Группа</p>
+            </div>
+            {view === 'main' && (
+              <button onClick={() => setView('setup')} className="p-2 text-gray-300">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
               </button>
-            </div>
-
-            <div className="relative">
-              <input 
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Поиск по архиву..." 
-                className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-12 py-3.5 text-[15px] outline-none focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-gray-300 font-medium"
-              />
-              <svg className="w-5 h-5 absolute left-4 top-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            </div>
+            )}
           </header>
 
-          <main className="flex-1 overflow-y-auto p-4 relative">
-            {!currentFolderId ? (
-              <div className="space-y-4 pb-28">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Разделы архива</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Облако активно</span>
+          <main className="flex-1 overflow-y-auto p-4 space-y-2">
+            {view === 'main' && FOLDERS.map(f => (
+              <div 
+                key={f.id} 
+                onClick={() => { setActiveFolder(f); setView('folder'); }}
+                className="folder-item p-4 rounded-2xl flex items-center justify-between"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="text-2xl">{f.icon}</div>
+                  <div>
+                    <div className="font-bold text-[15px]">{f.name}</div>
+                    <div className="text-[11px] text-gray-400 font-medium">{storage.filter(d => d.folder === f.id).length} объектов</div>
                   </div>
                 </div>
-                
-                <div className="grid grid-cols-1 gap-3.5">
-                  {FOLDERS.map(f => (
-                    <div 
-                      key={f.id} 
-                      onClick={() => setCurrentFolderId(f.id)} 
-                      className="folder-card p-4 rounded-[28px] shadow-sm flex flex-col gap-4 border border-white hover:border-blue-100"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={`${f.color} w-12 h-12 rounded-2xl flex items-center justify-center text-2xl text-white shadow-inner`}>
-                            {f.icon}
-                          </div>
-                          <div>
-                            <div className="font-bold text-[16px] text-gray-800 leading-tight">{f.name}</div>
-                            <div className="text-[11px] text-gray-400 font-bold mt-1">
-                              {documents.filter(d => d.folder === f.id).length} объектов
-                            </div>
-                          </div>
-                        </div>
-                        <div className="bg-gray-50 p-2 rounded-xl">
-                          <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between pt-3 border-t border-gray-50 mt-1">
-                         <span className="text-[10px] font-black text-gray-300 uppercase tracking-tighter">Команда для чата:</span>
-                         <button 
-                           onClick={(e) => copyToClipboard(f.cmd, e)}
-                           className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-[11px] font-black tracking-wider hover:bg-blue-100 transition-colors cmd-badge"
-                         >
-                           {f.cmd}
-                         </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-6 p-6 bg-gradient-to-br from-indigo-600 to-blue-700 rounded-[32px] text-white shadow-xl shadow-blue-100 relative overflow-hidden">
-                  <div className="relative z-10">
-                    <h3 className="text-[13px] font-black uppercase tracking-widest mb-2">Памятка для сотрудников</h3>
-                    <p className="text-[14px] opacity-90 leading-relaxed font-medium">
-                      Чтобы файл попал в архив, отправьте его в группу и напишите команду в подписи.
-                    </p>
-                  </div>
-                  <div className="absolute -right-4 -bottom-4 text-8xl opacity-10 rotate-12">📄</div>
-                </div>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); copyToClipboard(f.cmd); }}
+                  className="bg-gray-100 text-gray-400 px-3 py-1.5 rounded-lg text-[10px] font-black tracking-tight"
+                >
+                  {f.cmd}
+                </button>
               </div>
-            ) : (
-              <div className="bg-white rounded-[32px] min-h-full flex flex-col shadow-xl border border-gray-100 overflow-hidden mb-24">
-                <div className="p-5 border-b bg-gray-50/50 flex justify-between items-center sticky top-0 z-10 glass-effect">
-                   <div className="flex items-center gap-2">
-                     <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                     <span className="text-[11px] font-black uppercase text-gray-500 tracking-widest">Список файлов</span>
-                   </div>
-                   <span className="bg-blue-600 text-white text-[10px] font-black px-2 py-1 rounded-lg">{filteredDocs.length}</span>
-                </div>
-                
-                <div className="flex-1 divide-y divide-gray-50">
-                  {filteredDocs.length > 0 ? filteredDocs.map(d => (
-                    <div key={d.id} className="doc-item p-5 flex items-center justify-between active:bg-gray-50 transition-colors">
-                      <div className="flex items-center gap-4 overflow-hidden">
-                        <div className="w-11 h-11 rounded-2xl bg-gray-50 flex items-center justify-center text-2xl shrink-0 border border-gray-100">📄</div>
-                        <div className="overflow-hidden">
-                          <div className="text-[14px] font-bold text-gray-800 truncate leading-tight">{d.name}</div>
-                          <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter mt-1.5 flex items-center gap-2">
-                            <span>{d.date}</span>
-                            <span className="w-1 h-1 rounded-full bg-gray-200"></span>
-                            <span>{d.size}</span>
-                            <span className="w-1 h-1 rounded-full bg-gray-200"></span>
-                            <span className="text-blue-500">{d.user}</span>
-                          </div>
+            ))}
+
+            {view === 'folder' && (
+              <div className="space-y-2">
+                {storage.filter(d => d.folder === activeFolder.id).length > 0 ? (
+                  storage.filter(d => d.folder === activeFolder.id).map(doc => (
+                    <div key={doc.id} className="bg-white p-4 rounded-2xl border border-gray-100 flex items-center gap-4">
+                      <div className="text-xl">📄</div>
+                      <div className="overflow-hidden">
+                        <div className="text-[14px] font-bold truncate leading-tight">{doc.name}</div>
+                        <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold tracking-tight">
+                          {doc.date} • {doc.user}
                         </div>
                       </div>
-                      <button 
-                        onClick={() => {
-                          tg.HapticFeedback.impactOccurred('light');
-                          tg.showAlert(`Функция скачивания "${d.name}" будет доступна после подключения бота.`);
-                        }}
-                        className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-600 rounded-xl active:scale-90 transition-all shadow-sm"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                      </button>
                     </div>
-                  )) : (
-                    <div className="py-24 text-center">
-                      <div className="text-6xl mb-6 grayscale opacity-10">📁</div>
-                      <p className="text-[12px] font-black text-gray-300 uppercase tracking-[0.3em]">Раздел пуст</p>
+                  ))
+                ) : (
+                  <div className="py-20 text-center opacity-30 text-sm font-black uppercase tracking-[0.2em]">Пусто</div>
+                )}
+              </div>
+            )}
+
+            {view === 'setup' && (
+              <div className="space-y-4">
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                  <h3 className="font-extrabold text-lg mb-4 text-blue-600">Как поставить кнопку</h3>
+                  <div className="space-y-5 text-[13px] leading-relaxed text-gray-600">
+                    <div>
+                      <p className="font-bold text-black mb-1">1. Зайдите в @BotFather</p>
+                      <p>Выберите вашего бота → <b>Bot Settings</b> → <b>Menu Button</b>.</p>
                     </div>
-                  )}
+                    <div>
+                      <p className="font-bold text-black mb-1">2. Нажмите "Configure mini App"</p>
+                      <p>Это то, что вы видели. Бот попросит отправить ссылку.</p>
+                    </div>
+                    <div>
+                      <p className="font-bold text-black mb-1">3. Отправьте ссылку:</p>
+                      <code className="block bg-gray-50 p-2 rounded-lg mt-1 text-[11px] break-all border border-gray-200">
+                        https://alexanderkhan12.github.io/KIN/
+                      </code>
+                    </div>
+                    <div>
+                      <p className="font-bold text-black mb-1">4. Напишите текст кнопки:</p>
+                      <p>Просто отправьте слово <b>АРХИВ</b>.</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setView('main')}
+                    className="mt-8 w-full bg-gray-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all"
+                  >
+                    Готово, я настроил
+                  </button>
                 </div>
               </div>
             )}
           </main>
 
-          <footer className="p-5 bg-white border-t border-gray-100 fixed bottom-0 left-0 right-0 z-30 safe-area-bottom shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
-            <input type="file" id="archiveUpload" className="hidden" onChange={handleFileUpload} />
+          {/* Footer Upload */}
+          <footer className="bg-white p-5 border-t border-gray-100 safe-bottom">
+            <input type="file" id="up-file" className="hidden" onChange={onFileAdd} />
             <label 
-              htmlFor="archiveUpload" 
-              className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[13px] font-black uppercase py-4.5 rounded-[22px] shadow-xl shadow-blue-100 flex items-center justify-center gap-3 active:scale-[0.96] transition-all cursor-pointer tracking-[0.1em]"
+              htmlFor="up-file"
+              className="app-button w-full py-4.5 rounded-[20px] flex items-center justify-center font-bold text-[13px] uppercase tracking-wider shadow-lg active:scale-95 transition-all cursor-pointer"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
               Загрузить вручную
             </label>
           </footer>
