@@ -1,0 +1,7 @@
+{
+  "name": "Accounting Document Manager (Telegram Companion)",
+  "description": "A minimalist document management system designed for accounting teams. Organize invoices, waybills, and contracts with AI-powered categorization and easy sharing back to Telegram chats.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
