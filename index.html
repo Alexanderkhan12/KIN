@@ -12,59 +12,13 @@
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Babel для компиляции TSX прямо в браузере (необходимо для GitHub Pages) -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Babel Standalone для компиляции JSX/TSX в браузере -->
+  <script src="https://unpkg.com/@babel/standalone@7.26.2/babel.min.js"></script>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   
-  <script>
-    // Настройка Babel для поддержки TypeScript и React
-    Babel.registerPreset('tsx', {
-      presets: [
-        [Babel.availablePresets['typescript'], { allExtensions: true, isTSX: true }],
-        [Babel.availablePresets['react'], { runtime: 'automatic' }]
-      ]
-    });
-
-    // Защита от отсутствия process.env
-    window.process = { env: { API_KEY: "" } };
-    
-    // Глобальный логгер ошибок для диагностики "белого экрана"
-    window.onerror = function(msg, url, lineNo, columnNo, error) {
-      const root = document.getElementById('root');
-      if (root) {
-        root.innerHTML = `
-          <div style="padding: 24px; color: #ef4444; font-family: sans-serif; background: #fef2f2; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
-            <svg style="width: 48px; height: 48px; margin-bottom: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-            <h3 style="font-weight: 800; font-size: 18px; margin-bottom: 8px;">Ошибка запуска</h3>
-            <p style="font-size: 14px; opacity: 0.8; margin-bottom: 24px; max-width: 300px;">${msg}</p>
-            <button onclick="location.reload()" style="padding: 12px 24px; background: #0088cc; color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer;">Попробовать снова</button>
-          </div>
-        `;
-      }
-      return false;
-    };
-  </script>
-
-  <style>
-    :root { --tg-color: #0088cc; }
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: var(--tg-theme-bg-color, #e6ebee);
-      color: var(--tg-theme-text-color, #000);
-      margin: 0; padding: 0; overflow: hidden;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-    }
-    #loading-screen {
-      display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
-      color: var(--tg-theme-button-color, #0088cc); font-weight: bold;
-    }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  </style>
-
   <script type="importmap">
 {
   "imports": {
@@ -77,16 +31,74 @@
   }
 }
 </script>
+
+  <script>
+    // Защита от отсутствия process.env
+    window.process = { env: { API_KEY: "" } };
+
+    // Настройка Babel для работы с TypeScript и React в браузере
+    Babel.registerPreset('app-tsx', {
+      presets: [
+        [Babel.availablePresets['typescript'], { allExtensions: true, isTSX: true }],
+        [Babel.availablePresets['react'], { runtime: 'automatic' }]
+      ]
+    });
+
+    // Глобальная обработка ошибок для диагностики
+    window.onerror = function(msg, url, line, col, error) {
+      console.error("Boot error:", msg);
+      const root = document.getElementById('root');
+      if (root) {
+        root.innerHTML = `
+          <div style="padding: 30px; text-align: center; font-family: sans-serif;">
+            <h2 style="color: #e11d48; margin-bottom: 10px;">Ошибка загрузки</h2>
+            <p style="font-size: 13px; color: #666; margin-bottom: 20px;">${msg}</p>
+            <button onclick="location.reload()" style="padding: 10px 20px; background: #0088cc; color: white; border: none; border-radius: 10px; cursor: pointer;">Обновить страницу</button>
+          </div>
+        `;
+      }
+    };
+  </script>
+
+  <style>
+    :root { --tg-color: #0088cc; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--tg-theme-bg-color, #e6ebee);
+      color: var(--tg-theme-text-color, #000);
+      margin: 0; padding: 0; overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #loading-screen {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
+      color: var(--tg-theme-button-color, #0088cc);
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
   <div id="root">
     <div id="loading-screen">
-      <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--tg-theme-button-color, #0088cc); border-radius: 50%; animation: spin 1s linear infinite;"></div>
-      <p style="margin-top: 15px; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.6;">Инициализация</p>
+      <div style="width: 32px; height: 32px; border: 3px solid #f3f3f3; border-top: 3px solid var(--tg-theme-button-color, #0088cc); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      <p style="margin-top: 15px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.5;">Загрузка архива...</p>
     </div>
   </div>
 
-  <!-- Используем Babel Standalone для загрузки основного модуля -->
-  <script type="text/babel" data-type="module" data-presets="tsx" src="index.tsx"></script>
+  <!-- Код запуска теперь находится прямо здесь для надежности -->
+  <script type="text/babel" data-presets="app-tsx" data-type="module">
+    import React from 'react';
+    import ReactDOM from 'react-dom/client';
+    import App from './App.tsx';
+
+    try {
+      const container = document.getElementById('root');
+      if (container) {
+        const root = ReactDOM.createRoot(container);
+        root.render(<App />);
+      }
+    } catch (e) {
+      console.error("Render error:", e);
+    }
+  </script>
 </body>
 </html>
