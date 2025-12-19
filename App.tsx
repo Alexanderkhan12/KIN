@@ -4,7 +4,6 @@ import { FOLDERS } from './constants.tsx';
 import { FolderType, Document, ChatMessage } from './types.ts';
 import { analyzeDocument } from './services/geminiService.ts';
 
-// Объявляем глобальный объект Telegram для TS
 declare global {
   interface Window {
     Telegram: any;
@@ -34,14 +33,11 @@ const App: React.FC = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [highlightedDocId, setHighlightedDocId] = useState<string | null>(null);
 
-  // Инициализация Telegram Web App
   useEffect(() => {
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
       tg.ready();
-      tg.expand(); // Разворачиваем на весь экран
-      
-      // Настраиваем цвета шапки под тему Telegram
+      tg.expand();
       tg.setHeaderColor('secondary_bg_color');
     }
 
@@ -99,7 +95,6 @@ const App: React.FC = () => {
 
   const handleFileUpload = async (file: File, text: string) => {
     setIsUploading(true);
-    // Вибрация при начале загрузки
     if (window.Telegram?.WebApp?.HapticFeedback) {
       window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
     }
@@ -153,9 +148,7 @@ const App: React.FC = () => {
       const shareUrl = `${baseUrl}#doc=${docId}`;
       const shareText = `📎 Документ: ${doc.name}\n📂 Папка: ${FOLDERS.find(f => f.id === doc.folder)?.name}\n🔗 Открыть: ${shareUrl}`;
       
-      // Если мы в Telegram, пробуем отправить данные боту или просто в буфер
       navigator.clipboard.writeText(shareText);
-      
       setToastMessage('Ссылка скопирована!');
       setShowToast(true);
       setTimeout(() => setShowToast(false), 2000);
@@ -187,7 +180,7 @@ const App: React.FC = () => {
           </div>
           <div>
             <h1 className="text-sm font-bold leading-tight">Архив Бухгалтерии</h1>
-            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">v1.5 Telegram Native</p>
+            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">v1.6 GitHub Optimized</p>
           </div>
         </div>
         
