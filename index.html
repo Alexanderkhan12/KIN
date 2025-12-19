@@ -9,7 +9,7 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Используем UMD версии для максимальной совместимости -->
+  <!-- Библиотеки -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -19,10 +19,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <script>
-    // Имитация ESM для совместимости с App.tsx
     window.process = { env: { API_KEY: "" } };
     
-    // Глобальные переменные для Babel
     Babel.registerPreset('app-preset', {
       presets: [
         [Babel.availablePresets['typescript'], { allExtensions: true, isTSX: true }],
@@ -30,18 +28,14 @@
       ]
     });
 
-    window.onerror = function(msg, url, line, col, error) {
-      console.error("Critical Runtime Error:", msg, error);
+    window.onerror = function(msg) {
+      console.error("Runtime Error:", msg);
       const root = document.getElementById('root');
       if (root) {
-        root.innerHTML = `
-          <div style="padding: 40px; text-align: center; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white;">
-            <div style="color: #ef4444; font-size: 40px; margin-bottom: 20px;">⚠️</div>
-            <h2 style="font-weight: 800; color: #1f2937; margin-bottom: 8px;">Ошибка запуска</h2>
-            <p style="font-size: 13px; color: #6b7280; max-width: 280px; margin-bottom: 24px;">Произошла ошибка при инициализации приложения.</p>
-            <button onclick="location.reload()" style="padding: 12px 24px; background: #0088cc; color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer;">Обновить</button>
-          </div>
-        `;
+        root.innerHTML = `<div style="padding:40px; text-align:center; font-family:sans-serif;">
+          <h2 style="color:#ef4444">Ошибка</h2><p>${msg}</p>
+          <button onclick="location.reload()" style="background:#0088cc; color:white; border:none; padding:10px 20px; border-radius:10px;">Обновить</button>
+        </div>`;
       }
     };
   </script>
@@ -49,17 +43,17 @@
   <style>
     body {
       font-family: 'Inter', sans-serif;
-      background-color: var(--tg-theme-bg-color, #f4f7f9);
+      background-color: var(--tg-theme-secondary-bg-color, #f4f7f9);
       color: var(--tg-theme-text-color, #000);
       margin: 0; padding: 0; overflow: hidden;
     }
     #loading-screen {
       display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
       background: white;
-      transition: opacity 0.5s ease;
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .loader { width: 32px; height: 32px; border: 3px solid #f3f3f3; border-top: 3px solid #0088cc; border-radius: 50%; animation: spin 1s linear infinite; }
+    .tg-button { background-color: var(--tg-theme-button-color, #0088cc); color: var(--tg-theme-button-text-color, #ffffff); }
   </style>
 <script type="importmap">
 {
@@ -75,32 +69,164 @@
   <div id="root">
     <div id="loading-screen">
       <div class="loader"></div>
-      <p style="margin-top: 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #999; font-weight: 600;">Инициализация...</p>
+      <p style="margin-top: 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #999; font-weight: 600;">Запуск системы...</p>
     </div>
   </div>
 
-  <!-- Загружаем App.tsx и рендерим через Babel -->
-  <script type="text/babel" data-presets="app-preset" src="App.tsx"></script>
-  
-  <script type="text/babel" data-presets="app-preset">
-    // Ждем пока App загрузится в глобальную область или через Babel
-    const renderApp = () => {
-      try {
-        const rootElement = document.getElementById('root');
-        if (rootElement && window.App) {
-          const root = ReactDOM.createRoot(rootElement);
-          root.render(<window.App />);
-        } else {
-          // Если App еще не доступен, пробуем через короткий промежуток
-          setTimeout(renderApp, 100);
-        }
-      } catch (e) {
-        console.error("Render error:", e);
-      }
+  <!-- Весь код приложения здесь для гарантированного запуска -->
+  <script type="text/babel" data-presets="app-preset" data-type="module">
+    import { GoogleGenAI, Type } from "https://esm.sh/@google/genai@1.34.0";
+    const { useState, useEffect, useRef } = React;
+
+    const FOLDERS = [
+      { id: 'invoices', name: 'Счета и спецификации', color: 'bg-blue-500', icon: '📄' },
+      { id: 'waybills', name: 'Накладные', color: 'bg-emerald-500', icon: '🚚' },
+      { id: 'contracts', name: 'Договоры', color: 'bg-amber-500', icon: '📝' },
+      { id: 'taxes', name: 'Налоги и отчеты', color: 'bg-indigo-500', icon: '📊' },
+      { id: 'misc', name: 'Разное', color: 'bg-slate-500', icon: '📁' },
+    ];
+
+    const COMMAND_MAP = {
+      '/счета': 'invoices', '/инвойс': 'invoices',
+      '/накладные': 'waybills', '/упд': 'waybills',
+      '/договоры': 'contracts', '/контракт': 'contracts',
+      '/налоги': 'taxes', '/отчет': 'taxes', '/разное': 'misc'
     };
-    
-    // Запускаем процесс после загрузки всех скриптов
-    window.addEventListener('load', renderApp);
+
+    const App = () => {
+      const [view, setView] = useState('chat');
+      const [currentFolder, setCurrentFolder] = useState(null);
+      const [messages, setMessages] = useState([]);
+      const [documents, setDocuments] = useState([]);
+      const [inputText, setInputText] = useState('');
+      const [isUploading, setIsUploading] = useState(false);
+
+      useEffect(() => {
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+          tg.ready();
+          tg.expand();
+        }
+        const saved = localStorage.getItem('accounting_archive');
+        if (saved) setDocuments(JSON.parse(saved));
+        
+        setMessages([{
+          id: '1', sender: 'system', timestamp: 'now',
+          text: '✅ Система готова.\nПришлите файл или используйте /команды для распределения документов.'
+        }]);
+      }, []);
+
+      useEffect(() => {
+        localStorage.setItem('accounting_archive', JSON.stringify(documents));
+      }, [documents]);
+
+      const handleSend = async (text, file) => {
+        if (!text.trim() && !file) return;
+
+        if (file) {
+          setIsUploading(true);
+          const folderId = Object.keys(COMMAND_MAP).find(cmd => text.toLowerCase().includes(cmd)) 
+                           ? COMMAND_MAP[Object.keys(COMMAND_MAP).find(cmd => text.toLowerCase().includes(cmd))] 
+                           : 'misc';
+          
+          const newDoc = {
+            id: Math.random().toString(36).substr(2, 9),
+            name: file.name,
+            folder: folderId,
+            uploadDate: new Date().toLocaleDateString(),
+            size: (file.size / 1024).toFixed(1) + ' KB'
+          };
+
+          setDocuments(prev => [newDoc, ...prev]);
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(), sender: 'user', timestamp: 'now',
+            text: text || `Загружен: ${file.name}`, attachedDocId: newDoc.id
+          }]);
+          setIsUploading(false);
+        } else {
+          setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'user', text, timestamp: 'now' }]);
+        }
+        setInputText('');
+      };
+
+      return (
+        <div className="flex flex-col h-screen max-w-lg mx-auto bg-white shadow-xl relative overflow-hidden">
+          {/* Header */}
+          <header className="px-4 py-3 border-b flex items-center justify-between bg-white z-10">
+            <h1 className="font-black text-sm uppercase tracking-tighter">Архив Бухгалтерии</h1>
+            <div className="flex bg-gray-100 p-1 rounded-xl">
+              <button onClick={() => setView('chat')} className={`px-4 py-1.5 text-[10px] font-bold rounded-lg ${view === 'chat' ? 'bg-white shadow-sm' : 'text-gray-400'}`}>ЧАТ</button>
+              <button onClick={() => setView('folders')} className={`px-4 py-1.5 text-[10px] font-bold rounded-lg ${view === 'folders' ? 'bg-white shadow-sm' : 'text-gray-400'}`}>ПАПКИ</button>
+            </div>
+          </header>
+
+          <main className="flex-1 overflow-hidden">
+            {view === 'chat' ? (
+              <div className="flex flex-col h-full bg-[#f0f2f5]">
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {messages.map(m => (
+                    <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] p-3 rounded-2xl text-sm shadow-sm ${m.sender === 'user' ? 'bg-[#effdde] border' : 'bg-white border'}`}>
+                        {m.text}
+                        {m.attachedDocId && (
+                          <div className="mt-2 p-2 bg-black/5 rounded-lg flex items-center gap-2 text-[11px] font-bold">
+                            📂 {documents.find(d => d.id === m.attachedDocId)?.name}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-3 bg-white border-t flex items-center gap-2">
+                  <input type="file" id="f" className="hidden" onChange={e => handleSend(inputText, e.target.files[0])} />
+                  <label htmlFor="f" className="p-2 text-gray-400">📎</label>
+                  <input value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend(inputText)} placeholder="Текст или /команда..." className="flex-1 bg-gray-100 rounded-xl px-4 py-2 text-sm outline-none" />
+                  <button onClick={() => handleSend(inputText)} className="tg-button p-2 rounded-full w-10 h-10 flex items-center justify-center">➤</button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 h-full overflow-y-auto bg-[#f0f2f5]">
+                {!currentFolder ? (
+                  <div className="grid grid-cols-1 gap-3">
+                    {FOLDERS.map(f => (
+                      <div key={f.id} onClick={() => setCurrentFolder(f.id)} className="bg-white p-4 rounded-2xl flex items-center gap-4 shadow-sm active:scale-95 transition-transform">
+                        <div className={`${f.color} w-12 h-12 rounded-xl flex items-center justify-center text-xl`}>{f.icon}</div>
+                        <div className="flex-1">
+                          <div className="font-bold text-sm">{f.name}</div>
+                          <div className="text-[10px] text-gray-400 uppercase font-black">{documents.filter(d => d.folder === f.id).length} файлов</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl h-full flex flex-col shadow-sm">
+                    <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                      <button onClick={() => setCurrentFolder(null)} className="text-[#0088cc] font-black text-xs">← НАЗАД</button>
+                      <span className="text-[10px] font-black uppercase text-gray-400">{FOLDERS.find(f => f.id === currentFolder).name}</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto divide-y">
+                      {documents.filter(d => d.folder === currentFolder).map(d => (
+                        <div key={d.id} className="p-4 flex justify-between items-center">
+                          <div className="overflow-hidden pr-4">
+                            <div className="text-sm font-bold truncate">{d.name}</div>
+                            <div className="text-[10px] text-gray-400">{d.uploadDate} • {d.size}</div>
+                          </div>
+                          <button className="text-[#0088cc] text-xs font-bold shrink-0">ССЫЛКА</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </main>
+          {isUploading && <div className="absolute top-0 left-0 w-full h-1 bg-blue-500 animate-pulse"></div>}
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
   </script>
 </body>
 </html>
