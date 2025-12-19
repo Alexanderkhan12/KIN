@@ -6,54 +6,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Архив Бухгалтерии</title>
   
+  <!-- Telegram Web App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Библиотеки -->
+  <!-- Библиотеки через CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-  <script>
-    window.process = { env: { API_KEY: "" } };
-    
-    Babel.registerPreset('app-preset', {
-      presets: [
-        [Babel.availablePresets['typescript'], { allExtensions: true, isTSX: true }],
-        [Babel.availablePresets['react'], { runtime: 'classic' }]
-      ]
-    });
-
-    window.onerror = function(msg) {
-      console.error("Runtime Error:", msg);
-      const root = document.getElementById('root');
-      if (root) {
-        root.innerHTML = `<div style="padding:40px; text-align:center; font-family:sans-serif;">
-          <h2 style="color:#ef4444">Ошибка</h2><p>${msg}</p>
-          <button onclick="location.reload()" style="background:#0088cc; color:white; border:none; padding:10px 20px; border-radius:10px;">Обновить</button>
-        </div>`;
-      }
-    };
-  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <style>
     body {
       font-family: 'Inter', sans-serif;
       background-color: var(--tg-theme-secondary-bg-color, #f4f7f9);
-      color: var(--tg-theme-text-color, #000);
+      color: var(--tg-theme-text-color, #222);
       margin: 0; padding: 0; overflow: hidden;
     }
     #loading-screen {
       display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;
-      background: white;
+      background: white; z-index: 9999; position: fixed; inset: 0;
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .loader { width: 32px; height: 32px; border: 3px solid #f3f3f3; border-top: 3px solid #0088cc; border-radius: 50%; animation: spin 1s linear infinite; }
     .tg-button { background-color: var(--tg-theme-button-color, #0088cc); color: var(--tg-theme-button-text-color, #ffffff); }
+    .chat-bubble-user { background-color: #effdde; border: 1px solid #d1e3b8; }
+    .chat-bubble-system { background-color: #ffffff; border: 1px solid #e5e7eb; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
   </style>
 <script type="importmap">
 {
@@ -69,18 +52,17 @@
   <div id="root">
     <div id="loading-screen">
       <div class="loader"></div>
-      <p style="margin-top: 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #999; font-weight: 600;">Запуск системы...</p>
+      <p style="margin-top: 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #999; font-weight: 600;">Загрузка системы...</p>
     </div>
   </div>
 
-  <!-- Весь код приложения здесь для гарантированного запуска -->
-  <script type="text/babel" data-presets="app-preset" data-type="module">
-    import { GoogleGenAI, Type } from "https://esm.sh/@google/genai@1.34.0";
+  <script type="text/babel" data-presets="react,typescript">
     const { useState, useEffect, useRef } = React;
 
+    // --- КОНСТАНТЫ ---
     const FOLDERS = [
       { id: 'invoices', name: 'Счета и спецификации', color: 'bg-blue-500', icon: '📄' },
-      { id: 'waybills', name: 'Накладные', color: 'bg-emerald-500', icon: '🚚' },
+      { id: 'waybills', name: 'Накладные (УПД)', color: 'bg-emerald-500', icon: '🚚' },
       { id: 'contracts', name: 'Договоры', color: 'bg-amber-500', icon: '📝' },
       { id: 'taxes', name: 'Налоги и отчеты', color: 'bg-indigo-500', icon: '📊' },
       { id: 'misc', name: 'Разное', color: 'bg-slate-500', icon: '📁' },
@@ -93,6 +75,7 @@
       '/налоги': 'taxes', '/отчет': 'taxes', '/разное': 'misc'
     };
 
+    // --- ПРИЛОЖЕНИЕ ---
     const App = () => {
       const [view, setView] = useState('chat');
       const [currentFolder, setCurrentFolder] = useState(null);
@@ -100,24 +83,41 @@
       const [documents, setDocuments] = useState([]);
       const [inputText, setInputText] = useState('');
       const [isUploading, setIsUploading] = useState(false);
+      const [showToast, setShowToast] = useState(null);
 
+      // Инициализация
       useEffect(() => {
         const tg = window.Telegram?.WebApp;
         if (tg) {
           tg.ready();
           tg.expand();
+          tg.enableClosingConfirmation();
         }
-        const saved = localStorage.getItem('accounting_archive');
-        if (saved) setDocuments(JSON.parse(saved));
-        
+
+        const savedDocs = localStorage.getItem('kin_archive_docs');
+        if (savedDocs) {
+          try {
+            setDocuments(JSON.parse(savedDocs));
+          } catch (e) {
+            console.error(e);
+          }
+        }
+
         setMessages([{
-          id: '1', sender: 'system', timestamp: 'now',
-          text: '✅ Система готова.\nПришлите файл или используйте /команды для распределения документов.'
+          id: 'welcome',
+          sender: 'system',
+          text: '📂 Архив Бухгалтерии готов к работе.\n\nПришлите документ, и я определю его в нужную папку. Вы также можете указать категорию командой (например: /счета).',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }]);
+
+        // Убираем экран загрузки
+        const loader = document.getElementById('loading-screen');
+        if (loader) loader.style.display = 'none';
       }, []);
 
+      // Автосохранение
       useEffect(() => {
-        localStorage.setItem('accounting_archive', JSON.stringify(documents));
+        localStorage.setItem('kin_archive_docs', JSON.stringify(documents));
       }, [documents]);
 
       const handleSend = async (text, file) => {
@@ -125,102 +125,196 @@
 
         if (file) {
           setIsUploading(true);
-          const folderId = Object.keys(COMMAND_MAP).find(cmd => text.toLowerCase().includes(cmd)) 
-                           ? COMMAND_MAP[Object.keys(COMMAND_MAP).find(cmd => text.toLowerCase().includes(cmd))] 
-                           : 'misc';
+          
+          // Логика определения папки (команды или ключевые слова)
+          const findFolder = () => {
+            const combined = (text + ' ' + file.name).toLowerCase();
+            for (const [cmd, folderId] of Object.entries(COMMAND_MAP)) {
+              if (combined.includes(cmd) || combined.includes(cmd.replace('/', ''))) return folderId;
+            }
+            if (combined.includes('счет') || combined.includes('inv')) return 'invoices';
+            if (combined.includes('накл') || combined.includes('упд')) return 'waybills';
+            if (combined.includes('дог')) return 'contracts';
+            if (combined.includes('налог') || combined.includes('отчет')) return 'taxes';
+            return 'misc';
+          };
+
+          const targetFolder = findFolder();
+          const docId = Math.random().toString(36).substr(2, 9);
           
           const newDoc = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: docId,
             name: file.name,
-            folder: folderId,
-            uploadDate: new Date().toLocaleDateString(),
+            folder: targetFolder,
+            date: new Date().toLocaleDateString('ru-RU'),
             size: (file.size / 1024).toFixed(1) + ' KB'
           };
 
           setDocuments(prev => [newDoc, ...prev]);
           setMessages(prev => [...prev, {
-            id: Date.now().toString(), sender: 'user', timestamp: 'now',
-            text: text || `Загружен: ${file.name}`, attachedDocId: newDoc.id
+            id: Date.now().toString(),
+            sender: 'user',
+            text: text || `📄 Файл загружен: ${file.name}`,
+            attachedDocId: docId,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }]);
+
           setIsUploading(false);
+          setInputText('');
+          showToastMsg('Документ сохранен!');
         } else {
-          setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'user', text, timestamp: 'now' }]);
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            sender: 'user',
+            text,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }]);
+          setInputText('');
         }
-        setInputText('');
+      };
+
+      const showToastMsg = (msg) => {
+        setShowToast(msg);
+        setTimeout(() => setShowToast(null), 2000);
+      };
+
+      const copyLink = (id) => {
+        const url = `${window.location.origin}${window.location.pathname}#doc=${id}`;
+        navigator.clipboard.writeText(url);
+        showToastMsg('Ссылка скопирована!');
       };
 
       return (
-        <div className="flex flex-col h-screen max-w-lg mx-auto bg-white shadow-xl relative overflow-hidden">
+        <div className="flex flex-col h-screen max-w-lg mx-auto bg-white shadow-2xl relative overflow-hidden border-x border-gray-100">
+          
           {/* Header */}
-          <header className="px-4 py-3 border-b flex items-center justify-between bg-white z-10">
-            <h1 className="font-black text-sm uppercase tracking-tighter">Архив Бухгалтерии</h1>
+          <header className="px-4 py-3 border-b flex items-center justify-between bg-white z-20 shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-[#0088cc] flex items-center justify-center text-white text-lg font-bold">K</div>
+              <h1 className="font-extrabold text-[14px] uppercase tracking-tighter text-gray-800">Архив Бухгалтерии</h1>
+            </div>
             <div className="flex bg-gray-100 p-1 rounded-xl">
-              <button onClick={() => setView('chat')} className={`px-4 py-1.5 text-[10px] font-bold rounded-lg ${view === 'chat' ? 'bg-white shadow-sm' : 'text-gray-400'}`}>ЧАТ</button>
-              <button onClick={() => setView('folders')} className={`px-4 py-1.5 text-[10px] font-bold rounded-lg ${view === 'folders' ? 'bg-white shadow-sm' : 'text-gray-400'}`}>ПАПКИ</button>
+              <button onClick={() => setView('chat')} className={`px-4 py-1.5 text-[10px] font-bold rounded-lg transition-all ${view === 'chat' ? 'bg-white shadow-sm text-[#0088cc]' : 'text-gray-400'}`}>ЧАТ</button>
+              <button onClick={() => {setView('folders'); setCurrentFolder(null);}} className={`px-4 py-1.5 text-[10px] font-bold rounded-lg transition-all ${view === 'folders' ? 'bg-white shadow-sm text-[#0088cc]' : 'text-gray-400'}`}>ПАПКИ</button>
             </div>
           </header>
 
-          <main className="flex-1 overflow-hidden">
+          <main className="flex-1 overflow-hidden relative">
             {view === 'chat' ? (
-              <div className="flex flex-col h-full bg-[#f0f2f5]">
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <div className="flex flex-col h-full bg-[#f4f7f9]">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {messages.map(m => (
                     <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[85%] p-3 rounded-2xl text-sm shadow-sm ${m.sender === 'user' ? 'bg-[#effdde] border' : 'bg-white border'}`}>
-                        {m.text}
+                      <div className={`max-w-[85%] p-3 rounded-2xl shadow-sm text-[13px] leading-relaxed ${m.sender === 'user' ? 'chat-bubble-user' : 'chat-bubble-system'}`}>
+                        <p className="whitespace-pre-wrap">{m.text}</p>
                         {m.attachedDocId && (
-                          <div className="mt-2 p-2 bg-black/5 rounded-lg flex items-center gap-2 text-[11px] font-bold">
-                            📂 {documents.find(d => d.id === m.attachedDocId)?.name}
+                          <div onClick={() => copyLink(m.attachedDocId)} className="mt-2 p-2.5 bg-black/5 rounded-xl flex items-center gap-3 cursor-pointer hover:bg-black/10 transition-colors">
+                            <div className="w-8 h-8 rounded-lg bg-[#0088cc] text-white flex items-center justify-center shrink-0">📄</div>
+                            <div className="overflow-hidden">
+                              <p className="text-[11px] font-bold truncate text-gray-700">{documents.find(d => d.id === m.attachedDocId)?.name}</p>
+                              <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tight">Скопировать ссылку</p>
+                            </div>
                           </div>
                         )}
+                        <div className="text-[9px] text-gray-400 mt-1.5 text-right font-bold opacity-60 uppercase">{m.timestamp}</div>
                       </div>
                     </div>
                   ))}
+                  {isUploading && (
+                    <div className="flex justify-start">
+                      <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-2">
+                        <div className="loader !w-3 !h-3"></div>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Сохранение...</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="p-3 bg-white border-t flex items-center gap-2">
-                  <input type="file" id="f" className="hidden" onChange={e => handleSend(inputText, e.target.files[0])} />
-                  <label htmlFor="f" className="p-2 text-gray-400">📎</label>
-                  <input value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend(inputText)} placeholder="Текст или /команда..." className="flex-1 bg-gray-100 rounded-xl px-4 py-2 text-sm outline-none" />
-                  <button onClick={() => handleSend(inputText)} className="tg-button p-2 rounded-full w-10 h-10 flex items-center justify-center">➤</button>
+
+                {/* Input Area */}
+                <div className="p-3 bg-white border-t flex items-center gap-2 shrink-0">
+                  <input type="file" id="fileInput" className="hidden" onChange={e => {
+                    const file = e.target.files[0];
+                    if(file) handleSend(inputText, file);
+                  }} />
+                  <label htmlFor="fileInput" className="p-2 text-gray-400 cursor-pointer active:scale-90 transition-transform">
+                    <svg className="w-6 h-6 rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.414a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                  </label>
+                  <input 
+                    value={inputText} 
+                    onChange={e => setInputText(e.target.value)} 
+                    onKeyDown={e => e.key === 'Enter' && handleSend(inputText)}
+                    placeholder="Сообщение или /команда..." 
+                    className="flex-1 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2 text-[13.5px] outline-none focus:ring-1 focus:ring-[#0088cc] transition-all"
+                  />
+                  <button 
+                    onClick={() => handleSend(inputText)}
+                    className="tg-button p-2.5 rounded-full shadow-lg active:scale-95 transition-transform"
+                  >
+                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+                  </button>
                 </div>
               </div>
             ) : (
-              <div className="p-4 h-full overflow-y-auto bg-[#f0f2f5]">
+              <div className="p-4 h-full overflow-y-auto bg-[#f4f7f9]">
                 {!currentFolder ? (
                   <div className="grid grid-cols-1 gap-3">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">Ваш архив</p>
                     {FOLDERS.map(f => (
-                      <div key={f.id} onClick={() => setCurrentFolder(f.id)} className="bg-white p-4 rounded-2xl flex items-center gap-4 shadow-sm active:scale-95 transition-transform">
-                        <div className={`${f.color} w-12 h-12 rounded-xl flex items-center justify-center text-xl`}>{f.icon}</div>
+                      <div key={f.id} onClick={() => setCurrentFolder(f.id)} className="bg-white p-4 rounded-2xl flex items-center gap-4 shadow-sm active:scale-[0.98] transition-all border border-transparent hover:border-gray-200 cursor-pointer">
+                        <div className={`${f.color} w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-md`}>{f.icon}</div>
                         <div className="flex-1">
-                          <div className="font-bold text-sm">{f.name}</div>
-                          <div className="text-[10px] text-gray-400 uppercase font-black">{documents.filter(d => d.folder === f.id).length} файлов</div>
+                          <div className="font-bold text-[14px] text-gray-800">{f.name}</div>
+                          <div className="text-[10px] text-gray-400 uppercase font-black tracking-tight">{documents.filter(d => d.folder === f.id).length} объектов</div>
                         </div>
+                        <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-white rounded-2xl h-full flex flex-col shadow-sm">
-                    <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
-                      <button onClick={() => setCurrentFolder(null)} className="text-[#0088cc] font-black text-xs">← НАЗАД</button>
-                      <span className="text-[10px] font-black uppercase text-gray-400">{FOLDERS.find(f => f.id === currentFolder).name}</span>
+                  <div className="bg-white rounded-3xl h-full flex flex-col shadow-xl border border-gray-100 overflow-hidden">
+                    <div className="p-4 border-b flex justify-between items-center bg-gray-50/50">
+                      <button onClick={() => setCurrentFolder(null)} className="text-[#0088cc] font-black text-[10px] uppercase flex items-center gap-1 tracking-widest">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg> Назад
+                      </button>
+                      <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">{FOLDERS.find(f => f.id === currentFolder).name}</span>
                     </div>
-                    <div className="flex-1 overflow-y-auto divide-y">
+                    <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
                       {documents.filter(d => d.folder === currentFolder).map(d => (
-                        <div key={d.id} className="p-4 flex justify-between items-center">
-                          <div className="overflow-hidden pr-4">
-                            <div className="text-sm font-bold truncate">{d.name}</div>
-                            <div className="text-[10px] text-gray-400">{d.uploadDate} • {d.size}</div>
+                        <div key={d.id} className="p-4 flex justify-between items-center group hover:bg-gray-50 transition-colors">
+                          <div className="overflow-hidden pr-4 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">📄</div>
+                            <div>
+                              <div className="text-[13px] font-bold text-gray-700 truncate">{d.name}</div>
+                              <div className="text-[10px] text-gray-400 font-medium">{d.date} • {d.size}</div>
+                            </div>
                           </div>
-                          <button className="text-[#0088cc] text-xs font-bold shrink-0">ССЫЛКА</button>
+                          <button 
+                            onClick={() => copyLink(d.id)}
+                            className="text-[#0088cc] text-[10px] font-black uppercase tracking-tighter shrink-0 p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            Ссылка
+                          </button>
                         </div>
                       ))}
+                      {documents.filter(d => d.folder === currentFolder).length === 0 && (
+                        <div className="p-12 text-center">
+                          <div className="text-4xl mb-4 opacity-20">📂</div>
+                          <p className="text-[11px] font-black text-gray-300 uppercase tracking-widest">Здесь пока пусто</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
             )}
           </main>
-          {isUploading && <div className="absolute top-0 left-0 w-full h-1 bg-blue-500 animate-pulse"></div>}
+          
+          {/* Toast */}
+          {showToast && (
+            <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-[#1f2937] text-white text-[10px] font-black px-6 py-2.5 rounded-2xl shadow-2xl z-[100] border border-white/10 uppercase tracking-widest animate-bounce">
+              {showToast}
+            </div>
+          )}
         </div>
       );
     };
