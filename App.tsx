@@ -85,7 +85,6 @@ const COMMAND_MAP: Record<string, FolderType> = {
 const analyzeFileWithAI = async (fileName: string): Promise<{ suggestedFolder: FolderType; reasoning: string }> => {
   const apiKey = (window as any).process?.env?.API_KEY;
   if (!apiKey) {
-    // Простая логика если нет API ключа
     const name = fileName.toLowerCase();
     if (name.includes('счет') || name.includes('inv')) return { suggestedFolder: 'invoices', reasoning: 'Ключевое слово "Счет"' };
     if (name.includes('накл') || name.includes('упд')) return { suggestedFolder: 'waybills', reasoning: 'Ключевое слово "Накладная"' };
@@ -127,7 +126,6 @@ const App: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [toast, setToast] = useState<{ show: boolean; msg: string }>({ show: false, msg: '' });
 
-  // Инициализация
   useEffect(() => {
     const tg = (window as any).Telegram?.WebApp;
     if (tg) {
@@ -152,7 +150,6 @@ const App: React.FC = () => {
     }]);
   }, []);
 
-  // Сохранение при обновлении списка документов
   useEffect(() => {
     if (documents.length >= 0) {
       localStorage.setItem('account_archive_docs', JSON.stringify(documents));
@@ -216,8 +213,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen bg-[#f0f2f5] max-w-xl mx-auto border-x border-gray-200 shadow-2xl relative overflow-hidden">
-      
-      {/* Шапка */}
       <header className="bg-white px-4 py-3 flex items-center justify-between border-b shrink-0 z-20">
         <div className="flex items-center gap-3">
           <div onClick={() => setView('setup')} className="w-9 h-9 rounded-full bg-[#0088cc] flex items-center justify-center text-white cursor-pointer shadow-lg active:scale-95 transition-transform">
@@ -231,7 +226,6 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Основной контент */}
       <main className="flex-1 overflow-hidden relative">
         {view === 'chat' && (
           <div className="flex flex-col h-full">
@@ -254,8 +248,6 @@ const App: React.FC = () => {
                 </div>
               ))}
             </div>
-            
-            {/* Поле ввода */}
             <div className="p-4 bg-white border-t shrink-0">
               <div className="flex items-center gap-2 max-w-2xl mx-auto">
                 <input type="file" id="file-upload" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if(f) handleSend(inputText, f); }} />
@@ -306,12 +298,6 @@ const App: React.FC = () => {
                       <button onClick={() => copyDocUrl(d.id)} className="p-3 text-gray-300 hover:text-[#0088cc] active:scale-90 transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg></button>
                     </div>
                   ))}
-                  {documents.filter(d => d.folder === currentFolderId).length === 0 && (
-                    <div className="p-20 text-center">
-                      <div className="text-gray-200 text-5xl mb-4">📂</div>
-                      <p className="text-gray-400 text-[11px] font-black uppercase tracking-widest opacity-60">Папка пуста</p>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -320,32 +306,11 @@ const App: React.FC = () => {
 
         {view === 'setup' && (
           <div className="p-8 bg-white h-full overflow-y-auto">
-            <h2 className="text-2xl font-black mb-8 tracking-tighter">Настройки системы</h2>
-            <div className="space-y-8">
-              <div className="p-6 bg-[#f8fafc] rounded-3xl border border-blue-50 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1.5 h-full bg-[#0088cc]"></div>
-                <p className="text-[10px] font-black text-[#0088cc] uppercase mb-3 tracking-widest">Статус Хранилища</p>
-                <p className="text-[14px] text-gray-700 leading-relaxed font-medium">Ваши документы хранятся в <b>локальной базе данных браузера</b>. Приложение готово к работе через Telegram Web App.</p>
-              </div>
-              
-              <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase mb-4 tracking-widest">Список быстрых команд</p>
-                <div className="space-y-3">
-                  {Object.entries(COMMAND_MAP).map(([cmd, folderId]) => (
-                    <div key={cmd} className="flex justify-between items-center text-[13px] p-3.5 bg-gray-50 rounded-2xl border border-gray-100 shadow-sm">
-                      <span className="font-mono font-bold text-[#0088cc]">{cmd}</span>
-                      <span className="text-gray-600 font-bold text-[11px] uppercase tracking-tight">{FOLDERS.find(f => f.id === folderId)?.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <button onClick={() => setView('chat')} className="w-full py-4 bg-[#0088cc] text-white rounded-2xl font-black text-[13px] shadow-xl active:scale-95 transition-transform uppercase tracking-widest">Вернуться в чат</button>
-            </div>
+            <h2 className="text-2xl font-black mb-8 tracking-tighter">Настройки</h2>
+            <button onClick={() => setView('chat')} className="w-full py-4 bg-[#0088cc] text-white rounded-2xl font-black text-[13px] shadow-xl uppercase tracking-widest">Вернуться</button>
           </div>
         )}
 
-        {/* Прогресс бар загрузки */}
         {isUploading && (
           <div className="absolute top-0 left-0 w-full h-1 bg-blue-100 overflow-hidden z-50">
             <div className="h-full bg-[#0088cc] animate-[progress_1.5s_ease-in-out_infinite] w-1/3"></div>
@@ -353,19 +318,19 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Уведомление */}
       {toast.show && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1f2937] text-white text-[11px] font-black px-6 py-3 rounded-2xl shadow-2xl z-50 animate-bounce tracking-widest uppercase border border-white/10">
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#1f2937] text-white text-[11px] font-black px-6 py-3 rounded-2xl shadow-2xl z-50 animate-bounce border border-white/10">
           {toast.msg}
         </div>
       )}
 
       <style>{`
         @keyframes progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
-        ::-webkit-scrollbar { width: 0px; background: transparent; }
       `}</style>
     </div>
   );
 };
 
+// Экспортируем в глобальную область для Babel
+(window as any).App = App;
 export default App;
