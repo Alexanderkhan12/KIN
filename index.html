@@ -60,6 +60,14 @@
       transition: all 0.15s ease;
     }
     .btn-primary:active { transform: scale(0.96); opacity: 0.9; }
+    .command-tag {
+      font-family: monospace;
+      background: #000;
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
   </style>
 <script type="importmap">
 {
@@ -78,11 +86,11 @@
     const { useState, useEffect } = React;
 
     const FOLDERS = [
-      { id: 'invoices', name: 'Счета / Спецификации', cmd: 'invoice', icon: '📄', color: 'bg-blue-500' },
-      { id: 'waybills', name: 'Накладные / УПД', cmd: 'waybill', icon: '🚚', color: 'bg-emerald-500' },
+      { id: 'invoices', name: 'Счета и спецификации', cmd: 'invoice', icon: '📄', color: 'bg-blue-500' },
+      { id: 'waybills', name: 'Накладные и УПД', cmd: 'waybill', icon: '🚚', color: 'bg-emerald-500' },
       { id: 'contracts', name: 'Договоры', cmd: 'contract', icon: '📝', color: 'bg-orange-500' },
-      { id: 'taxes', name: 'Налоги / Отчеты', cmd: 'tax', icon: '📊', color: 'bg-indigo-500' },
-      { id: 'misc', name: 'Прочее', cmd: 'misc', icon: '📁', color: 'bg-slate-400' },
+      { id: 'taxes', name: 'Налоги и отчеты', cmd: 'tax', icon: '📊', color: 'bg-indigo-500' },
+      { id: 'misc', name: 'Разное', cmd: 'misc', icon: '📁', color: 'bg-slate-400' },
     ];
 
     const App = () => {
@@ -100,6 +108,7 @@
         const saved = localStorage.getItem('kin_archive_group_v1');
         if (saved) setStorage(JSON.parse(saved));
 
+        // Обработка параметров запуска (глубокие ссылки)
         const startParam = tg?.initDataUnsafe?.start_param;
         if (startParam) {
           const folder = FOLDERS.find(f => f.id === startParam || f.cmd === startParam);
@@ -139,7 +148,6 @@
           const result = response.text.trim().toLowerCase();
           return FOLDERS.some(f => f.id === result) ? result : 'misc';
         } catch (e) {
-          console.error(e);
           return 'misc';
         }
       };
@@ -181,8 +189,16 @@
       };
 
       const getDeepLink = (folderId = '') => {
-        const cleanName = botName.replace('@','');
+        const cleanName = botName.replace('@','').trim();
         return `https://t.me/${cleanName}/app${folderId ? '?startapp=' + folderId : ''}`;
+      };
+
+      const shareFolder = (f) => {
+        const link = getDeepLink(f.id);
+        const text = `📁 Папка: ${f.name}\n\nНажмите, чтобы открыть документы:`;
+        tg?.sendData(JSON.stringify({ type: 'share', link, text })); // Если бот поддерживает
+        // Или просто копируем
+        copyToClipboard(link, `Ссылка на папку ${f.name} скопирована!`);
       };
 
       return (
@@ -190,51 +206,54 @@
           
           <header className="glass-header px-6 pt-12 pb-6 border-b border-black/5 flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
-                {view === 'folder' ? activeFolder.name : (view === 'setup' ? 'Настройка' : 'Архив')}
+              <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 leading-tight">
+                {view === 'folder' ? activeFolder.name : (view === 'setup' ? 'Связать бота' : 'Архив')}
               </h1>
               <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-0.5">
-                {view === 'folder' ? 'Документы' : 'Бухгалтерия'}
+                {view === 'folder' ? 'Бухгалтерия' : 'Групповой доступ'}
               </p>
             </div>
             {view === 'main' && (
-              <button onClick={() => setView('setup')} className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-full text-gray-400 active:scale-90 transition-all">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              <button onClick={() => setView('setup')} className="w-10 h-10 flex items-center justify-center bg-blue-50 rounded-full text-blue-600 active:scale-90 transition-all border border-blue-100">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
               </button>
             )}
           </header>
 
           <main className="flex-1 overflow-y-auto p-4 space-y-3 relative">
             {loading && (
-              <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-50 flex items-center justify-center">
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
                 <div className="flex flex-col items-center gap-3">
-                  <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-[10px] font-black uppercase text-blue-600">ИИ анализирует файл...</p>
+                  <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-[10px] font-black uppercase text-blue-600 tracking-tighter">Сортировка документа...</p>
                 </div>
               </div>
             )}
 
             {view === 'main' && (
               <>
-                <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-6 rounded-[32px] text-white shadow-xl shadow-blue-100 mb-2 relative overflow-hidden">
+                <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm relative overflow-hidden mb-2">
                   <div className="relative z-10">
-                    <h2 className="text-lg font-extrabold leading-tight mb-1">Архив группы</h2>
-                    <p className="text-[10px] opacity-80 leading-relaxed mb-4 font-bold uppercase tracking-wider">Общая ссылка для всех папок:</p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                      <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Общий доступ активен</h2>
+                    </div>
+                    <p className="text-gray-900 font-bold text-sm mb-4 leading-relaxed">Отправьте эту ссылку в чат вашей бухгалтерии:</p>
                     <button 
                       onClick={() => copyToClipboard(getDeepLink(), 'Общая ссылка скопирована!')}
-                      className="w-full bg-white text-blue-600 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all shadow-lg"
+                      className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2"
                     >
-                      Копировать ссылку
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                      Копировать общую ссылку
                     </button>
                   </div>
-                  <div className="absolute top-[-20%] right-[-10%] w-32 h-32 bg-white opacity-10 rounded-full blur-3xl"></div>
                 </div>
 
                 {FOLDERS.map(f => (
                   <div 
                     key={f.id} 
                     onClick={() => { setActiveFolder(f); setView('folder'); }}
-                    className="folder-card p-5 rounded-[28px] flex items-center justify-between shadow-sm"
+                    className="folder-card p-5 rounded-[28px] flex items-center justify-between shadow-sm bg-white"
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-2xl ${f.color} flex items-center justify-center text-2xl shadow-inner text-white`}>
@@ -242,12 +261,15 @@
                       </div>
                       <div>
                         <div className="font-bold text-[16px] text-gray-900 leading-none mb-1">{f.name}</div>
-                        <div className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
-                          {storage.filter(d => d.folder === f.id).length} объектов
+                        <div className="flex items-center gap-2">
+                          <span className="command-tag">/{f.cmd}</span>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
+                            {storage.filter(d => d.folder === f.id).length} файлов
+                          </span>
                         </div>
                       </div>
                     </div>
-                    <div className="text-gray-200">
+                    <div className="text-gray-300">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
                     </div>
                   </div>
@@ -257,13 +279,17 @@
 
             {view === 'folder' && (
               <div className="space-y-3">
-                <div className="bg-white p-4 rounded-3xl border border-gray-100 flex justify-between items-center mb-4">
-                  <div className="text-[11px] font-black uppercase text-gray-400 tracking-wider">Прямой вход:</div>
+                <div className="bg-white p-5 rounded-3xl border border-gray-100 flex flex-col gap-3 mb-4 shadow-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] font-black uppercase text-gray-400 tracking-wider">Привязка этой папки:</span>
+                    <span className="command-tag">/{activeFolder.cmd}</span>
+                  </div>
                   <button 
-                    onClick={(e) => { e.stopPropagation(); copyToClipboard(getDeepLink(activeFolder.id), `Ссылка на папку "${activeFolder.name}" скопирована!`); }}
-                    className="px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold text-[11px] uppercase active:scale-90 transition-all"
+                    onClick={(e) => { e.stopPropagation(); shareFolder(activeFolder); }}
+                    className="w-full py-4 bg-blue-50 text-blue-600 rounded-2xl font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"
                   >
-                    Поделиться папкой
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                    Копировать ссылку папки
                   </button>
                 </div>
 
@@ -281,8 +307,8 @@
                   ))
                 ) : (
                   <div className="py-20 text-center flex flex-col items-center">
-                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center text-4xl mb-4 grayscale opacity-40">📂</div>
-                    <p className="text-[11px] font-black text-gray-300 uppercase tracking-[0.3em]">Папка пуста</p>
+                    <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center text-4xl mb-4 grayscale opacity-40">📂</div>
+                    <p className="text-[11px] font-black text-gray-300 uppercase tracking-[0.3em]">Здесь пока ничего нет</p>
                   </div>
                 )}
               </div>
@@ -291,48 +317,50 @@
             {view === 'setup' && (
               <div className="space-y-4 pb-10">
                 <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm">
-                  <h3 className="font-black text-lg text-gray-900 mb-1 leading-none">ID вашего бота</h3>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase mb-4">Нужен для создания ссылок:</p>
+                  <h3 className="font-black text-lg text-gray-900 mb-1 leading-none tracking-tight">Название вашего бота</h3>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase mb-4">Нужно для создания ссылок:</p>
                   <input 
                     type="text" 
                     value={botName}
                     onChange={(e) => setBotName(e.target.value)}
                     placeholder="Kinfolder_bot"
-                    className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 font-bold text-sm text-blue-600 outline-none focus:ring-2 ring-blue-100"
+                    className="w-full bg-blue-50/50 p-4 rounded-2xl border border-blue-100 font-bold text-sm text-blue-600 outline-none focus:ring-2 ring-blue-200"
                   />
                 </div>
 
                 <div className="bg-white p-6 rounded-[32px] border border-gray-100 space-y-4 shadow-sm">
-                  <h3 className="font-black text-lg text-gray-900 leading-tight">Почему не работают команды?</h3>
-                  <p className="text-[11px] text-gray-400 font-bold uppercase">Чтобы в чате по нажатию на "/" что-то открывалось:</p>
+                  <h3 className="font-black text-lg text-gray-900 leading-tight">Мастер Привязки</h3>
+                  <p className="text-[11px] text-gray-400 font-bold uppercase">Если вы используете конструктор ботов (PuzzleBot, Manybot и др.), привяжите эти ссылки к командам:</p>
                   
-                  <div className="setup-step bg-amber-50">
-                    <div className="step-num bg-amber-500">!</div>
-                    <p>Telegram <b>не открывает</b> приложения сам по команде в чате. Ему нужен «сигнал».</p>
+                  <div className="space-y-3">
+                    {FOLDERS.map(f => (
+                      <div key={f.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-black text-[12px] text-gray-900">{f.name}</span>
+                          <span className="command-tag">/{f.cmd}</span>
+                        </div>
+                        <button 
+                          onClick={() => copyToClipboard(getDeepLink(f.id), `Ссылка для команды /${f.cmd} скопирована!`)}
+                          className="w-full py-2 bg-white border border-gray-200 rounded-xl text-[10px] font-bold uppercase text-blue-600 active:scale-95 transition-all truncate px-3"
+                        >
+                          {getDeepLink(f.id)}
+                        </button>
+                      </div>
+                    ))}
                   </div>
 
-                  <h3 className="font-black text-sm text-gray-900 pt-2">Лучшее решение — Inline Mode:</h3>
-                  
-                  <div className="setup-step">
-                    <div className="step-num">1</div>
-                    <p>В BotFather введите <b>/setinline</b> и выберите бота.</p>
-                  </div>
-
-                  <div className="setup-step">
-                    <div className="step-num">2</div>
-                    <p>Введите текст-подсказку (например: <i>"Поиск документов..."</i>).</p>
-                  </div>
-
-                  <div className="setup-step">
-                    <div className="step-num">3</div>
-                    <p>Теперь в чате просто наберите <b>@{botName.replace('@','')}</b> и пробел — папки сами появятся в меню!</p>
+                  <div className="p-4 bg-blue-600 rounded-2xl text-white">
+                    <h4 className="font-black text-sm mb-2 uppercase tracking-wide">Как это работает:</h4>
+                    <p className="text-[11px] leading-relaxed opacity-90 font-medium">
+                      В настройках вашего бота сделайте так: когда кто-то пишет команду <span className="underline">/invoice</span>, бот должен отправить сообщение с кнопкой <b>"Открыть Счета"</b>, а в кнопку вставьте ссылку, которую вы скопировали выше.
+                    </p>
                   </div>
 
                   <button 
                     onClick={() => setView('main')}
-                    className="w-full bg-gray-900 text-white py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all mt-4"
+                    className="w-full bg-gray-900 text-white py-5 rounded-[24px] font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all mt-4"
                   >
-                    Вернуться к архиву
+                    Вернуться в архив
                   </button>
                 </div>
               </div>
@@ -345,10 +373,10 @@
               htmlFor="up-file"
               className="btn-primary w-full py-5 rounded-[28px] flex items-center justify-center font-black text-[13px] uppercase tracking-widest shadow-xl shadow-blue-100 cursor-pointer"
             >
-              {view === 'folder' ? `Добавить в "${activeFolder.name}"` : 'Загрузить новый файл'}
+              {view === 'folder' ? `Добавить в "${activeFolder.name}"` : 'Загрузить файл'}
             </label>
             <p className="text-[9px] text-center mt-3 text-gray-300 font-bold uppercase tracking-widest">
-              {view === 'main' ? 'ИИ определит папку автоматически' : 'Файл будет сохранен в эту папку'}
+              {view === 'main' ? 'ИИ сам выберет нужную папку' : 'Файл будет сохранен здесь'}
             </p>
           </footer>
         </div>
