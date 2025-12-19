@@ -81,11 +81,11 @@
     const { useState, useEffect } = React;
 
     const FOLDERS = [
-      { id: 'invoices', name: 'Счета / Спецификации', icon: '📄', color: 'bg-blue-500' },
-      { id: 'waybills', name: 'Накладные / УПД', icon: '🚚', color: 'bg-emerald-500' },
-      { id: 'contracts', name: 'Договоры', icon: '📝', color: 'bg-orange-500' },
-      { id: 'taxes', name: 'Налоги / Отчеты', icon: '📊', color: 'bg-indigo-500' },
-      { id: 'misc', name: 'Прочее', icon: '📁', color: 'bg-slate-400' },
+      { id: 'invoices', name: 'Счета / Спецификации', cmd: 'invoice', icon: '📄', color: 'bg-blue-500' },
+      { id: 'waybills', name: 'Накладные / УПД', cmd: 'waybill', icon: '🚚', color: 'bg-emerald-500' },
+      { id: 'contracts', name: 'Договоры', cmd: 'contract', icon: '📝', color: 'bg-orange-500' },
+      { id: 'taxes', name: 'Налоги / Отчеты', cmd: 'tax', icon: '📊', color: 'bg-indigo-500' },
+      { id: 'misc', name: 'Прочее', cmd: 'misc', icon: '📁', color: 'bg-slate-400' },
     ];
 
     const App = () => {
@@ -102,7 +102,6 @@
         const saved = localStorage.getItem('kin_archive_group_v1');
         if (saved) setStorage(JSON.parse(saved));
 
-        // Обработка прямого входа из ссылки (параметр startapp)
         const startParam = tg?.initDataUnsafe?.start_param;
         if (startParam) {
           const folder = FOLDERS.find(f => f.id === startParam);
@@ -144,14 +143,13 @@
         tg?.HapticFeedback.notificationOccurred('success');
       };
 
-      const copyGroupLink = (folderId = '') => {
-        const cleanBotName = botName.replace('@', '');
-        const link = `https://t.me/${cleanBotName}/app${folderId ? '?startapp=' + folderId : ''}`;
-        
-        navigator.clipboard.writeText(link);
+      const copyToClipboard = (text, msg = 'Скопировано!') => {
+        navigator.clipboard.writeText(text);
         tg?.HapticFeedback.impactOccurred('medium');
-        tg?.showAlert(`Ссылка скопирована!\n\nОтправьте её в чат бухгалтерии и ЗАКРЕПИТЕ. Теперь архив всегда будет под рукой.`);
+        tg?.showAlert(msg);
       };
+
+      const commandListText = FOLDERS.map(f => `${f.cmd} - ${f.name}`).join('\n');
 
       return (
         <div className="flex flex-col h-screen max-w-md mx-auto overflow-hidden">
@@ -180,7 +178,7 @@
                     <h2 className="text-lg font-extrabold leading-tight mb-1">Доступ в группе</h2>
                     <p className="text-[10px] opacity-80 leading-relaxed mb-4 font-bold uppercase tracking-wider">Для быстрого входа коллег:</p>
                     <button 
-                      onClick={() => copyGroupLink()}
+                      onClick={() => copyToClipboard(`https://t.me/${botName.replace('@','')}/app`, 'Ссылка для группы скопирована!')}
                       className="w-full bg-white text-blue-600 py-3 rounded-2xl font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all shadow-lg"
                     >
                       Копировать ссылку
@@ -240,59 +238,59 @@
             {view === 'setup' && (
               <div className="space-y-4">
                 <div className="bg-white p-6 rounded-[32px] border border-gray-100">
-                  <h3 className="font-black text-lg text-gray-900 mb-1">ID вашего бота</h3>
-                  <p className="text-[10px] text-gray-400 font-black uppercase mb-4 tracking-wider">Введите Username из BotFather:</p>
+                  <h3 className="font-black text-lg text-gray-900 mb-1">Имя вашего бота</h3>
                   <input 
                     type="text" 
                     value={botName}
                     onChange={(e) => setBotName(e.target.value)}
                     placeholder="Kinfolder_bot"
-                    className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 font-bold text-sm text-blue-600 focus:bg-white transition-all"
+                    className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 font-bold text-sm text-blue-600"
                   />
                 </div>
 
                 <div className="bg-white p-6 rounded-[32px] border border-gray-100 space-y-4">
-                  <h3 className="font-black text-lg text-gray-900">Инструкция для «Скрепки»</h3>
+                  <h3 className="font-black text-lg text-gray-900 leading-tight">Подсказки через «/»</h3>
+                  <p className="text-[11px] text-gray-400 font-bold uppercase">Чтобы при вводе слэша выходили папки:</p>
                   
-                  <div className="setup-step">
-                    <div className="step-num">1</div>
-                    <p>В BotFather на вашем экране нажмите кнопку <b>«Change mode»</b>.</p>
+                  <div className="setup-step bg-blue-50">
+                    <div className="step-num bg-blue-600">1</div>
+                    <p>Зайдите в BotFather и выберите команду <b>/setcommands</b></p>
                   </div>
 
-                  <div className="setup-step">
-                    <div className="step-num">2</div>
-                    <p>Выберите пункт <b>«Attachment menu»</b> (или «Side menu»).</p>
+                  <div className="setup-step bg-blue-50">
+                    <div className="step-num bg-blue-600">2</div>
+                    <p>Выберите вашего бота и отправьте ему этот список:</p>
                   </div>
+
+                  <div className="bg-gray-900 p-4 rounded-2xl">
+                    <pre className="text-white text-[11px] font-mono leading-relaxed opacity-80">
+                      {commandListText}
+                    </pre>
+                  </div>
+
+                  <button 
+                    onClick={() => copyToClipboard(commandListText, 'Список команд скопирован! Отправьте его в BotFather.')}
+                    className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all shadow-md"
+                  >
+                    Скопировать список команд
+                  </button>
 
                   <div className="setup-step">
                     <div className="step-num">3</div>
-                    <p>Подтвердите и бот появится в меню <b>«скрепки»</b> для вас и коллег.</p>
+                    <p>Готово! Теперь в чате при вводе <b>/</b> будут видны названия папок.</p>
                   </div>
-
-                  <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
-                    <p className="text-[11px] text-amber-700 leading-relaxed font-bold">
-                      Важно: чтобы коллеги увидели скрепку, они должны хотя бы один раз запустить бота по ссылке из главного экрана.
-                    </p>
-                  </div>
-                  
-                  <button 
-                    onClick={() => setView('main')}
-                    className="w-full bg-gray-900 text-white py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest active:scale-95 transition-all"
-                  >
-                    Вернуться назад
-                  </button>
                 </div>
               </div>
             )}
           </main>
 
-          <footer className="bg-white p-6 border-t border-gray-100 safe-bottom shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
+          <footer className="bg-white p-6 border-t border-gray-100 safe-bottom">
             <input type="file" id="up-file" className="hidden" onChange={onFileAdd} />
             <label 
               htmlFor="up-file"
               className="w-full bg-blue-600 text-white py-4.5 rounded-[24px] flex items-center justify-center font-black text-[13px] uppercase tracking-widest shadow-xl shadow-blue-200 active:scale-95 transition-all cursor-pointer"
             >
-              {view === 'folder' ? `Загрузить в паку` : 'Новый файл'}
+              {view === 'folder' ? `Загрузить в папку` : 'Новый файл'}
             </label>
           </footer>
         </div>
